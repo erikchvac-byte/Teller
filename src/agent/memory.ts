@@ -74,6 +74,7 @@ export class Memory {
       event.content,
       event.timestamp,
     );
+    this.db.pragma('wal_checkpoint(PASSIVE)');
   }
 
   addObservation(observation: string): void {

@@ -1,18 +1,6 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { Memory, type StoredEvent, type StoredObservation } from "./memory.js";
-
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";
-
-const SYSTEM_PROMPT = `You are Teller, an observational coding companion. You receive batches of terminal commands and AI conversation snippets every 2 minutes. Your job is to notice patterns: frustration loops, productive exploration, rituals, stuck points. Write brief, third-person observations. Be specific. Don't be preachy. You have access to a memory tool to recall past sessions.
-
-Guidelines:
-- Refer to the developer as "he" or "they" (third person)
-- Keep each observation to 1-3 sentences max
-- Focus on patterns, not individual commands
-- If nothing notable happened, say nothing (return empty string)
-- When you see repeated commands, note what they might indicate
-- When you see a shift in activity, note the transition
-- Draw on past session observations when relevant patterns recur`;
+import type { AIProvider } from "./providers/index.js";
+import { AnthropicProvider } from "./providers/anthropic.js";
 
 export interface TellerObservation {
   text: string;
@@ -24,29 +12,32 @@ export interface TellerObservation {
  * and produces narrative observations about coding behavior.
  */
 export class TellerAgent {
-  private client: Anthropic;
+  private provider: AIProvider;
   private memory: Memory;
   private analysisInterval: ReturnType<typeof setInterval> | null = null;
   private lastAnalysisTime: number;
   private intervalMs: number;
   private onObservation: (obs: TellerObservation) => void;
   private onError: (err: Error) => void;
-  private model: string;
 
   constructor(opts: {
     memory: Memory;
+    provider?: AIProvider;
     intervalMs?: number;
-    model?: string;
     onObservation: (obs: TellerObservation) => void;
     onError?: (err: Error) => void;
   }) {
-    if (!ANTHROPIC_API_KEY) {
-      throw new Error("ANTHROPIC_API_KEY environment variable not set");
+    if (opts.provider) {
+      this.provider = opts.provider;
+    } else {
+      const apiKey = process.env.ANTHROPIC_API_KEY;
+      if (!apiKey) {
+        throw new Error("No AI provider specified and ANTHROPIC_API_KEY not set");
+      }
+      this.provider = new AnthropicProvider(apiKey, process.env.ANTHROPIC_MODEL);
     }
-    this.client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
     this.memory = opts.memory;
     this.intervalMs = opts.intervalMs || 2 * 60 * 1000; // 2 minutes
-    this.model = opts.model || "claude-sonnet-4-20250514";
     this.lastAnalysisTime = 0; // Capture all events on first run
     this.onObservation = opts.onObservation;
     this.onError = opts.onError || (() => {});
@@ -76,7 +67,6 @@ export class TellerAgent {
       const recentEvents = this.memory.getRecentEvents(analysisThreshold);
 
       if (recentEvents.length === 0) {
-        this.lastAnalysisTime = Date.now();
         return;
       }
 
@@ -92,17 +82,7 @@ export class TellerAgent {
         sessionObservations,
       );
 
-      const response = await this.client.messages.create({
-        model: this.model,
-        max_tokens: 300,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: "user", content: prompt }],
-      });
-
-      let text = "";
-      if (response.content[0].type === "text") {
-        text = response.content[0].text.trim();
-      }
+      const text = await this.provider.analyze(prompt);
 
       if (text && text.length > 0) {
         const observation: TellerObservation = {
@@ -153,7 +133,7 @@ export class TellerAgent {
     }
 
     parts.push(
-      "\n## Instructions\nBased on the recent activity, provide a brief observation. If nothing notable, respond with an empty string.",
+      "\n## Instructions\nBased on the recent activity, provide a brief observation about coding patterns and behavior. If nothing notable, respond with an empty string.",
     );
 
     return parts.join("\n");
