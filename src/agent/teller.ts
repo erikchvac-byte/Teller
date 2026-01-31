@@ -72,7 +72,8 @@ export class TellerAgent {
 
   private async analyze(): Promise<void> {
     try {
-      const recentEvents = this.memory.getRecentEvents(this.lastAnalysisTime);
+      const analysisThreshold = this.lastAnalysisTime === 0 ? 0 : this.lastAnalysisTime + 1;
+      const recentEvents = this.memory.getRecentEvents(analysisThreshold);
 
       if (recentEvents.length === 0) {
         this.lastAnalysisTime = Date.now();
@@ -98,10 +99,10 @@ export class TellerAgent {
         messages: [{ role: "user", content: prompt }],
       });
 
-      const text =
-        response.content[0].type === "text"
-          ? response.content[0].text.trim()
-          : "";
+      let text = "";
+      if (response.content[0].type === "text") {
+        text = response.content[0].text.trim();
+      }
 
       if (text && text.length > 0) {
         const observation: TellerObservation = {
