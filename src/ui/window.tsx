@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { render, Box, Text } from "ink";
 import type { TellerObservation } from "../agent/teller.js";
 import type { TerminalEvent } from "../capture/terminal-hook.js";
@@ -20,6 +20,7 @@ interface LogEntry {
   text: string;
   type: "event" | "observation" | "status" | "error";
   timestamp: number;
+  label?: string;
 }
 
 let nextId = 0;
@@ -29,18 +30,27 @@ function App({ eventEmitter }: AppProps) {
   const [observations, setObservations] = useState<LogEntry[]>([]);
   const [status, setStatus] = useState("Starting Teller...");
   const [eventCount, setEventCount] = useState(0);
+  const lastLabelRef = useRef<string>("");
 
   useEffect(() => {
     eventEmitter.on("event", (e: AnyEvent) => {
       setEventCount((c) => c + 1);
       let text: string;
+      let label: string | undefined;
+      
       if (e.source === "terminal") {
         text = `$ ${(e as TerminalEvent).command}`;
       } else {
         const oc = e as OpencodeEvent;
-        const label = [oc.provider, oc.model].filter(Boolean).join("/");
-        const tag = label ? `[${label}]` : "[opencode]";
-        text = `${tag} (${oc.role}) ${oc.content.slice(0, 60)}`;
+        label = [oc.provider, oc.model].filter(Boolean).join("/") || undefined;
+        
+        const showTag = label && label !== lastLabelRef.current;
+        if (label && label !== lastLabelRef.current) {
+          lastLabelRef.current = label;
+        }
+        
+        const tagPart = showTag ? `[${label}] ` : "";
+        text = `${tagPart}(${oc.role}) ${oc.content.slice(0, 60)}`;
       }
       setEvents((prev) => {
         const entry: LogEntry = {
@@ -48,6 +58,7 @@ function App({ eventEmitter }: AppProps) {
           text,
           type: "event",
           timestamp: Date.now(),
+          label,
         };
         return [...prev.slice(-19), entry]; // keep last 20
       });
@@ -74,7 +85,9 @@ function App({ eventEmitter }: AppProps) {
     });
   }, []);
 
-  const time = (ts: number) => new Date(ts).toLocaleTimeString();
+  const time = (ts: number) => {
+    return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
 
   return (
     <Box flexDirection="column" padding={1}>

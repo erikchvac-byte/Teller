@@ -73,9 +73,14 @@ export class TellerAgent {
   private async analyze(): Promise<void> {
     try {
       const recentEvents = this.memory.getRecentEvents(this.lastAnalysisTime);
-      this.lastAnalysisTime = Date.now();
 
-      if (recentEvents.length === 0) return;
+      if (recentEvents.length === 0) {
+        this.lastAnalysisTime = Date.now();
+        return;
+      }
+
+      const maxTimestamp = Math.max(...recentEvents.map(e => e.timestamp));
+      this.lastAnalysisTime = maxTimestamp;
 
       const pastObservations = this.memory.getPastObservations(10);
       const sessionObservations = this.memory.getSessionObservations();
