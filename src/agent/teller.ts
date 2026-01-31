@@ -1,5 +1,8 @@
+import "dotenv/config";
 import Anthropic from "@anthropic-ai/sdk";
 import { Memory, type StoredEvent, type StoredObservation } from "./memory.js";
+
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";
 
 const SYSTEM_PROMPT = `You are Teller, an observational coding companion. You receive batches of terminal commands and AI conversation snippets every 2 minutes. Your job is to notice patterns: frustration loops, productive exploration, rituals, stuck points. Write brief, third-person observations. Be specific. Don't be preachy. You have access to a memory tool to recall past sessions.
 
@@ -38,11 +41,14 @@ export class TellerAgent {
     onObservation: (obs: TellerObservation) => void;
     onError?: (err: Error) => void;
   }) {
-    this.client = new Anthropic();
+    if (!ANTHROPIC_API_KEY) {
+      throw new Error("ANTHROPIC_API_KEY environment variable not set");
+    }
+    this.client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
     this.memory = opts.memory;
     this.intervalMs = opts.intervalMs || 2 * 60 * 1000; // 2 minutes
     this.model = opts.model || "claude-sonnet-4-20250514";
-    this.lastAnalysisTime = Date.now();
+    this.lastAnalysisTime = 0; // Capture all events on first run
     this.onObservation = opts.onObservation;
     this.onError = opts.onError || (() => {});
   }
