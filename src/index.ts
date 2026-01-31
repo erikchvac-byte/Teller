@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { EventEmitter } from "node:events";
 import { TerminalHook } from "./capture/terminal-hook.js";
 import { OpencodeWatcher } from "./capture/opencode-watcher.js";
@@ -64,12 +65,15 @@ const agent = new TellerAgent({
 const app = renderApp(bus as any);
 
 // --- Start everything ---
-bus.emit("status", `Session: ${memory.getSessionId()}`);
-terminal.start();
-opencode.start();
-agent.start();
-
-bus.emit("status", "Teller is watching...");
+// Defer startup to allow React UI to mount and attach event listeners.
+// Without this, events emitted synchronously during start() are lost.
+setTimeout(() => {
+  bus.emit("status", `Session: ${memory.getSessionId()}`);
+  terminal.start();
+  opencode.start();
+  agent.start();
+  bus.emit("status", "Teller is watching...");
+}, 500);
 
 // --- Cleanup on exit ---
 function shutdown() {

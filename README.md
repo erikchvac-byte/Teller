@@ -37,6 +37,16 @@ Or build and run:
 ## Features
 
 - Captures terminal commands and opencode conversations
+- Processes recent activity from last 5 minutes on startup
 - Analyzes patterns in your coding behavior
 - Provides third-person observations about your development workflow
 - Maintains cross-session memory for pattern recognition
+- Real-time event feed and observation display
+
+## Recent Improvements
+
+- Fixed race condition: startup events now properly captured and displayed
+- Added dotenv support for secure API key configuration
+- Enhanced startup reporting with detailed status messages
+- Fixed TellerAgent to capture all events on first analysis cycle
+- Improved error handling with clear authentication validation

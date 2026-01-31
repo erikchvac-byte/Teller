@@ -1,4 +1,3 @@
-import "dotenv/config";
 import Anthropic from "@anthropic-ai/sdk";
 import { Memory, type StoredEvent, type StoredObservation } from "./memory.js";
 

@@ -76,14 +76,27 @@ export class OpencodeWatcher extends EventEmitter {
   /** Process recent files (last 5 min) and mark older ones as seen */
   private snapshotExisting(): void {
     const recentCutoff = Date.now() - 5 * 60 * 1000;
+    let recentMessages = 0;
+    let recentParts = 0;
+    let skippedMessages = 0;
+    let skippedParts = 0;
 
     if (fs.existsSync(this.messageDir)) {
-      this.walkAndProcessRecent(this.messageDir, recentCutoff, "message");
+      const counts = this.walkAndProcessRecent(this.messageDir, recentCutoff, "message");
+      recentMessages = counts.recent;
+      skippedMessages = counts.skipped;
     }
 
     if (fs.existsSync(this.partDir)) {
-      this.walkAndProcessRecent(this.partDir, recentCutoff, "part");
+      const counts = this.walkAndProcessRecent(this.partDir, recentCutoff, "part");
+      recentParts = counts.recent;
+      skippedParts = counts.skipped;
     }
+
+    this.emit(
+      "status",
+      `Snapshot: ${recentMessages} recent msgs, ${recentParts} recent parts (skipped ${skippedMessages}/${skippedParts} old)`,
+    );
   }
 
   /** Walk directory, process recent files, mark old ones as seen */
@@ -91,22 +104,28 @@ export class OpencodeWatcher extends EventEmitter {
     dir: string,
     cutoff: number,
     type: "message" | "part"
-  ): void {
+  ): { recent: number; skipped: number } {
+    let recent = 0;
+    let skipped = 0;
     try {
       const entries = fs.readdirSync(dir, { withFileTypes: true });
       for (const e of entries) {
         const full = path.join(dir, e.name);
         if (e.isDirectory()) {
-          this.walkAndProcessRecent(full, cutoff, type);
+          const sub = this.walkAndProcessRecent(full, cutoff, type);
+          recent += sub.recent;
+          skipped += sub.skipped;
         } else if (e.name.endsWith(".json")) {
           const stat = fs.statSync(full);
           if (stat.mtimeMs > cutoff) {
+            recent++;
             if (type === "message") {
               this.handleMessage(full);
             } else {
               this.handlePart(full);
             }
           } else {
+            skipped++;
             if (type === "message") {
               this.seenMessages.add(full);
             } else {
@@ -117,6 +136,7 @@ export class OpencodeWatcher extends EventEmitter {
       }
     } catch {
     }
+    return { recent, skipped };
   }
 
   private walkJsonFiles(dir: string, cb: (filePath: string) => void): void {
