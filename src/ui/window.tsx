@@ -37,18 +37,18 @@ function App({ eventEmitter }: AppProps) {
       setEventCount((c) => c + 1);
       let text: string;
       let label: string | undefined;
-      
+
       if (e.source === "terminal") {
         text = `$ ${(e as TerminalEvent).command}`;
       } else {
         const oc = e as OpencodeEvent;
         label = [oc.provider, oc.model].filter(Boolean).join("/") || undefined;
-        
+
         const showTag = label && label !== lastLabelRef.current;
         if (label && label !== lastLabelRef.current) {
           lastLabelRef.current = label;
         }
-        
+
         const tagPart = showTag ? `[${label}] ` : "";
         text = `${tagPart}(${oc.role}) ${oc.content.slice(0, 60)}`;
       }

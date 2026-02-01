@@ -67,15 +67,15 @@ export class OpencodeWatcher extends EventEmitter {
       return;
     }
 
-    this.snapshotExisting();
     this.watchMessages();
     this.watchParts();
     this.emit("status", "Watching opencode conversations (global, read-only)");
   }
 
-  /** Process recent files (last 5 min) and mark older ones as seen */
+  /** Process recent files (last 1 min) and mark older ones as seen */
   private snapshotExisting(): void {
-    const recentCutoff = Date.now() - 5 * 60 * 1000;
+    console.log("[OPENCODE] Starting snapshot of recent files");
+    const recentCutoff = Date.now() - 1 * 60 * 1000;
     let recentMessages = 0;
     let recentParts = 0;
     let skippedMessages = 0;
