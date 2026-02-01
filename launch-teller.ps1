@@ -11,10 +11,24 @@ public class User32 {
 }
 "@
 
-# Verify wt.exe exists
+# Verify wt.exe exists - check PATH first, then common locations
 $wtPath = where.exe wt 2>$null
 if (-not $wtPath) {
-    Write-Host "Error: Windows Terminal (wt.exe) not found in PATH" -ForegroundColor Red
+    # Try common installation paths
+    $commonPaths = @(
+        "C:\Users\erikc\AppData\Local\Microsoft\WindowsApps\wt.exe",
+        "C:\Program Files\WindowsTerminal\wt.exe"
+    )
+    foreach ($path in $commonPaths) {
+        if (Test-Path $path) {
+            $wtPath = $path
+            break
+        }
+    }
+}
+
+if (-not $wtPath) {
+    Write-Host "Error: Windows Terminal (wt.exe) not found in PATH or common locations" -ForegroundColor Red
     exit 1
 }
 
@@ -28,5 +42,11 @@ if ($existingProcess) {
     exit 0
 }
 
+# Ensure bun is in PATH for the new terminal
+$bunPath = "$env:USERPROFILE\.bun\bin"
+if (Test-Path $bunPath) {
+    $env:PATH = "$bunPath;$env:PATH"
+}
+
 # Launch new Windows Terminal with split panes
-& wt.exe -d "C:\Users\erikc" --title "Teller Workspace" `; opencode `; split-pane -H --size 0.25 -d "C:\Users\erikc\Dev\Termeller" bun run start
+& $wtPath -d "C:\Users\erikc" --title "Teller Workspace" `; opencode `; split-pane -H --size 0.25 -d "C:\Users\erikc\Dev\Termeller" bun run start
