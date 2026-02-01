@@ -60,7 +60,7 @@ function App({ eventEmitter }: AppProps) {
           timestamp: Date.now(),
           label,
         };
-        return [...prev.slice(-19), entry]; // keep last 20
+        return [...prev.slice(-49), entry]; // keep last 50
       });
     });
 
@@ -72,7 +72,7 @@ function App({ eventEmitter }: AppProps) {
           type: "observation",
           timestamp: o.timestamp,
         };
-        return [...prev.slice(-9), entry]; // keep last 10
+        return [...prev.slice(-49), entry]; // keep last 50
       });
     });
 
@@ -83,7 +83,7 @@ function App({ eventEmitter }: AppProps) {
     eventEmitter.on("error", (err: Error) => {
       setStatus(`Error: ${err.message}`);
     });
-  }, []);
+  }, [eventEmitter]);
 
   const time = (ts: number) => {
     return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -92,13 +92,12 @@ function App({ eventEmitter }: AppProps) {
   return (
     <Box flexDirection="column" padding={1}>
       {/* Header */}
-      <Box borderStyle="round" borderColor="cyan" paddingX={1}>
-        <Text bold color="cyan">
-          TELLER
+      <Box flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={1}>
+        <Text bold color="cyan" backgroundColor="black">
+          TELLER_CLCC
         </Text>
-        <Text> — observational coding companion</Text>
         <Text dimColor>
-          {"  "}[{eventCount} events captured]
+          [{eventCount} events captured]
         </Text>
       </Box>
 
@@ -107,12 +106,12 @@ function App({ eventEmitter }: AppProps) {
         <Text dimColor>{status}</Text>
       </Box>
 
-      {/* Two-pane layout */}
-      <Box flexDirection="row" minHeight={16}>
-        {/* Left: Event Feed */}
+      {/* Vertical layout - Event Feed (5 lines) + Observations (fills rest) */}
+      <Box flexDirection="column" flexGrow={1}>
+        {/* Top: Event Feed - 5 lines tall, full width */}
         <Box
           flexDirection="column"
-          width="50%"
+          height={5}
           borderStyle="single"
           borderColor="gray"
           paddingX={1}
@@ -123,7 +122,7 @@ function App({ eventEmitter }: AppProps) {
           {events.length === 0 ? (
             <Text dimColor>Waiting for terminal activity...</Text>
           ) : (
-            events.map((e) => (
+            events.slice(-4).map((e) => (
               <Text key={e.id} wrap="truncate">
                 <Text dimColor>{time(e.timestamp)}</Text> <Text>{e.text}</Text>
               </Text>
@@ -131,10 +130,10 @@ function App({ eventEmitter }: AppProps) {
           )}
         </Box>
 
-        {/* Right: Observations */}
+        {/* Bottom: Observations - fills remaining space, full width */}
         <Box
           flexDirection="column"
-          width="50%"
+          flexGrow={1}
           borderStyle="single"
           borderColor="yellow"
           paddingX={1}
@@ -145,7 +144,7 @@ function App({ eventEmitter }: AppProps) {
           {observations.length === 0 ? (
             <Text dimColor>Teller is watching... first analysis in ~15s</Text>
           ) : (
-            observations.map((o) => (
+            observations.slice(-10).map((o) => (
               <Box key={o.id} flexDirection="column" marginBottom={1}>
                 <Text dimColor>{time(o.timestamp)}</Text>
                 <Text color="yellow">{o.text}</Text>

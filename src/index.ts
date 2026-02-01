@@ -1,10 +1,24 @@
 import "dotenv/config";
 import { EventEmitter } from "node:events";
+import { execSync } from "node:child_process";
 import { TerminalHook } from "./capture/terminal-hook.js";
 import { OpencodeWatcher } from "./capture/opencode-watcher.js";
 import { Memory } from "./agent/memory.js";
 import { TellerAgent } from "./agent/teller.js";
 import { renderApp } from "./ui/window.js";
+
+// Clear terminal screen for clean startup
+try {
+  // Try multiple clear methods for Windows PowerShell
+  execSync("cls", { stdio: "inherit" });
+} catch {
+  try {
+    execSync("clear", { stdio: "inherit" });
+  } catch {
+    // Fallback: emit ANSI clear sequence
+    process.stdout.write("\x1b[2J\x1b[H");
+  }
+}
 
 /**
  * Central event bus that bridges capture sources, the agent, and the UI.
