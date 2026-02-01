@@ -12,12 +12,15 @@ public class User32 {
 "@
 
 # Verify wt.exe exists - check PATH first, then common locations
-$wtPath = where.exe wt 2>$null
-if (-not $wtPath) {
+$wtPath = $null
+try {
+    $wtPath = (Get-Command wt -ErrorAction Stop).Source
+} catch {
     # Try common installation paths
     $commonPaths = @(
-        "C:\Users\erikc\AppData\Local\Microsoft\WindowsApps\wt.exe",
-        "C:\Program Files\WindowsTerminal\wt.exe"
+        "$env:USERPROFILE\AppData\Local\Microsoft\WindowsApps\wt.exe",
+        "C:\Program Files\WindowsTerminal\wt.exe",
+        "C:\Users\erikc\AppData\Local\Microsoft\WindowsApps\wt.exe"
     )
     foreach ($path in $commonPaths) {
         if (Test-Path $path) {
