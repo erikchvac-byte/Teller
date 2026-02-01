@@ -16,16 +16,13 @@ Teller watches your terminal and opencode conversations, providing behavioral in
    ANTHROPIC_API_KEY=your_actual_api_key_here
    ```
 
-4. Run in development mode:
-   ```bash
-   npm run dev
-   ```
-
-Or build and run:
+4. Build and run the application:
    ```bash
    npm run build
-   npm start
+   npm run start
    ```
+
+(Development mode: `npm run dev` - for debugging only)
 
 ## How It Works
 
@@ -42,6 +39,9 @@ Or build and run:
 ✅ **Observational insights** - Third-person perspective on development workflow
 ✅ **Cross-session memory** - Persistent database for pattern tracking
 ✅ **Live monitoring** - Continuous background operation
+✅ **Clean UI layout** - Vertical stacking with fixed event feed (4 events) and observation feed (10 items)
+✅ **Clean startup** - Clears terminal on launch for clean banner positioning
+✅ **TELLER_CLCC branding** - Updated header with observational coding companion name
 
 ## Current Status
 
@@ -50,8 +50,15 @@ Teller is now **fully functional** and captures real-time events from:
 - Opencode conversations (file watching with 5-minute startup snapshot)
 - Behavioral observations (AI analysis every 2 minutes via Anthropic Claude)
 
-## Recent Fixes Applied
+## Recent Updates
 
+### UI/Layout Improvements
+- **Vertical layout**: Changed from side-by-side to stacked layout (events top, observations below)
+- **Fixed heights**: Event feed shows last 4 events, observations show last 10 items
+- **Clean startup**: Added terminal screen clearing for clean banner positioning
+- **Branding**: Updated to "TELLER_CLCC" header with banner styling
+
+### Fixes Applied
 - **CRITICAL FIX**: Resolved core bug where `snapshotExisting()` was never called
 - **Real-time monitoring**: Fixed file watcher configuration for Windows compatibility
 - **Debug mode**: Added comprehensive debugging (set `DEBUG=true` in `.env`)
