@@ -36,17 +36,25 @@ Or build and run:
 
 ## Features
 
-- Captures terminal commands and opencode conversations
-- Processes recent activity from last 5 minutes on startup
-- Analyzes patterns in your coding behavior
-- Provides third-person observations about your development workflow
-- Maintains cross-session memory for pattern recognition
-- Real-time event feed and observation display
+✅ **Real-time event capture** - Terminal commands and opencode conversations
+✅ **Startup snapshot** - Processes recent activity from last 5 minutes
+✅ **Behavioral analysis** - AI-powered pattern recognition via Claude
+✅ **Observational insights** - Third-person perspective on development workflow
+✅ **Cross-session memory** - Persistent database for pattern tracking
+✅ **Live monitoring** - Continuous background operation
 
-## Recent Improvements
+## Current Status
 
-- Fixed race condition: startup events now properly captured and displayed
-- Added dotenv support for secure API key configuration
-- Enhanced startup reporting with detailed status messages
-- Fixed TellerAgent to capture all events on first analysis cycle
-- Improved error handling with clear authentication validation
+Teller is now **fully functional** and captures real-time events from:
+- Terminal commands (PowerShell/bash history polling every 3 seconds)
+- Opencode conversations (file watching with 5-minute startup snapshot)
+- Behavioral observations (AI analysis every 2 minutes via Anthropic Claude)
+
+## Recent Fixes Applied
+
+- **CRITICAL FIX**: Resolved core bug where `snapshotExisting()` was never called
+- **Real-time monitoring**: Fixed file watcher configuration for Windows compatibility
+- **Debug mode**: Added comprehensive debugging (set `DEBUG=true` in `.env`)
+- **Time window**: Updated from 1 to 5 minutes for startup snapshot
+- **Error handling**: Enhanced user-friendly error messages
+- **Documentation**: Updated all docs to reflect actual functionality

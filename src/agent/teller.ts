@@ -19,6 +19,7 @@ export class TellerAgent {
   private intervalMs: number;
   private onObservation: (obs: TellerObservation) => void;
   private onError: (err: Error) => void;
+  private debug: boolean = process.env.DEBUG === "true";
 
   constructor(opts: {
     memory: Memory;
@@ -44,7 +45,10 @@ export class TellerAgent {
   }
 
   start(): void {
+    if (this.debug) console.log("[TELLER] Starting TellerAgent");
+    
     // Run first analysis after a short delay to collect initial events
+
     setTimeout(() => this.analyze(), 15_000);
     this.analysisInterval = setInterval(() => this.analyze(), this.intervalMs);
   }
@@ -66,7 +70,10 @@ export class TellerAgent {
       const analysisThreshold = this.lastAnalysisTime === 0 ? 0 : this.lastAnalysisTime + 1;
       const recentEvents = this.memory.getRecentEvents(analysisThreshold);
 
+      if (this.debug) console.log(`[TELLER] Analysis: found ${recentEvents.length} recent events`);
+
       if (recentEvents.length === 0) {
+        if (this.debug) console.log("[TELLER] No recent events to analyze");
         return;
       }
 
@@ -76,12 +83,14 @@ export class TellerAgent {
       const pastObservations = this.memory.getPastObservations(10);
       const sessionObservations = this.memory.getSessionObservations();
 
+      if (this.debug) console.log("[TELLER] Building analysis prompt");
       const prompt = this.buildPrompt(
         recentEvents,
         pastObservations,
         sessionObservations,
       );
 
+      if (this.debug) console.log("[TELLER] Sending prompt to AI provider");
       const text = await this.provider.analyze(prompt);
 
       if (text && text.length > 0) {
@@ -90,9 +99,13 @@ export class TellerAgent {
           timestamp: Date.now(),
         };
         this.memory.addObservation(text);
+        if (this.debug) console.log(`[TELLER] Generated observation: ${text}`);
         this.onObservation(observation);
+      } else {
+        if (this.debug) console.log("[TELLER] No observation generated (empty response)");
       }
     } catch (err) {
+      if (this.debug) console.log(`[TELLER] Analysis error: ${err}`);
       this.onError(err instanceof Error ? err : new Error(String(err)));
     }
   }

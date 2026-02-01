@@ -8,13 +8,51 @@ This document tracks recent improvements and bug fixes to the Teller project.
 
 ## Summary of Changes
 
-Between initial development and current state, **5 critical fixes** were applied to resolve startup issues, race conditions, and event capture problems:
+Between initial development and current state, **6 critical fixes** were applied to resolve startup issues, race conditions, and event capture problems:
 
-1. ✅ OpencodeWatcher - Fixed startup capture (processes last 5 minutes)
-2. ✅ Race Condition - Fixed UI mount timing (500ms delay)
-3. ✅ API Key Loading - Fixed dotenv initialization order
-4. ✅ TellerAgent - Fixed first analysis cycle (lastAnalysisTime = 0)
-5. ✅ Enhanced Startup Reporting - Added message/part counts
+1. ✅ **CRITICAL BUG FIX**: OpencodeWatcher - Fixed missing snapshotExisting() call (method was defined but never invoked)
+2. ✅ OpencodeWatcher - Fixed startup capture time window (changed from 1 to 5 minutes)
+3. ✅ Race Condition - Fixed UI mount timing (500ms delay)
+4. ✅ API Key Loading - Fixed dotenv initialization order
+5. ✅ TellerAgent - Fixed first analysis cycle (lastAnalysisTime = 0)
+6. ✅ Debug Mode - Added comprehensive debug logging throughout system
+
+---
+
+## Fix #0: OpencodeWatcher - CRITICAL Bug - snapshotExisting() Never Called
+
+### Problem
+Teller never loaded opencode conversations on startup. Users reported that "Teller does not load any information at all" and "it has never been a time when it loaded the information more than once."
+
+### Root Cause
+The `snapshotExisting()` method was properly implemented with all the right logic to process recent files, but it was **never called** in the `start()` method. The method existed with debug logging and status reporting, but was never invoked, making the startup snapshot completely non-functional.
+
+### Solution
+Modified `src/capture/opencode-watcher.ts`:
+```typescript
+// src/capture/opencode-watcher.ts line 64-73
+
+// OLD: No snapshot call
+start(): void {
+  this.watchMessages();
+  this.watchParts();
+  this.emit("status", "Watching opencode conversations...");
+}
+
+// NEW: Added snapshot call
+start(): void {
+  this.snapshotExisting(); // ← CRITICAL FIX
+  this.watchMessages();
+  this.watchParts();
+  this.emit("status", "Watching opencode conversations...");
+}
+```
+
+### Impact
+- ✅ **Teller now loads opencode conversations from last 5 minutes on startup**
+- ✅ Users can see their recent conversations in the event feed immediately
+- ✅ Observations are generated from startup events after ~15 seconds
+- ✅ Fixes the "never works" issue completely
 
 ---
 

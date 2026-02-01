@@ -34,6 +34,7 @@ export class OpencodeWatcher extends EventEmitter {
   private partWatcher: ReturnType<typeof watch> | null = null;
   private seenMessages = new Set<string>();
   private seenParts = new Set<string>();
+  private debug: boolean = process.env.DEBUG === "true";
 
   // Buffer: messageId -> metadata (from message files)
   private messageBuffer = new Map<
@@ -62,20 +63,31 @@ export class OpencodeWatcher extends EventEmitter {
   }
 
   start(): void {
+    if (this.debug) console.log("[OPENCODE] Starting OpencodeWatcher");
+    
     if (!fs.existsSync(this.storageDir)) {
       this.emit("status", `Opencode storage not found at ${this.storageDir}`);
+      this.emit("error", new Error(`Opencode storage directory not found. Please ensure opencode is running and has generated conversation history.`));
       return;
     }
 
-    this.watchMessages();
-    this.watchParts();
-    this.emit("status", "Watching opencode conversations (global, read-only)");
+    try {
+      // Capture existing recent files before starting to watch for new ones
+      this.snapshotExisting();
+      this.watchMessages();
+      this.watchParts();
+      this.emit("status", "Watching opencode conversations (global, read-only)");
+      
+      if (this.debug) console.log("[OPENCODE] OpencodeWatcher started successfully");
+    } catch (err) {
+      this.emit("error", new Error(`Failed to start opencode watcher: ${err instanceof Error ? err.message : String(err)}`));
+    }
   }
 
-  /** Process recent files (last 1 min) and mark older ones as seen */
+  /** Process recent files (last 5 min) and mark older ones as seen */
   private snapshotExisting(): void {
-    console.log("[OPENCODE] Starting snapshot of recent files");
-    const recentCutoff = Date.now() - 1 * 60 * 1000;
+    if (this.debug) console.log("[OPENCODE] Starting snapshot of recent files");
+    const recentCutoff = Date.now() - 5 * 60 * 1000;
     let recentMessages = 0;
     let recentParts = 0;
     let skippedMessages = 0;
@@ -119,6 +131,7 @@ export class OpencodeWatcher extends EventEmitter {
           const stat = fs.statSync(full);
           if (stat.mtimeMs > cutoff) {
             recent++;
+            if (this.debug) console.log(`[OPENCODE] Processing recent ${type}: ${path.basename(full)}`);
             if (type === "message") {
               this.handleMessage(full);
             } else {
@@ -126,6 +139,7 @@ export class OpencodeWatcher extends EventEmitter {
             }
           } else {
             skipped++;
+            if (this.debug) console.log(`[OPENCODE] Skipping old ${type}: ${path.basename(full)}`);
             if (type === "message") {
               this.seenMessages.add(full);
             } else {
@@ -159,28 +173,54 @@ export class OpencodeWatcher extends EventEmitter {
   private watchMessages(): void {
     if (!fs.existsSync(this.messageDir)) return;
 
-    const glob = path.join(this.messageDir, "**/*.json").replace(/\\/g, "/");
-    this.messageWatcher = watch(glob, {
+    // Try simple directory watching instead of glob
+    if (this.debug) console.log(`[OPENCODE] Watching message directory: ${this.messageDir}`);
+    
+    this.messageWatcher = watch(this.messageDir, {
       ignoreInitial: true,
       awaitWriteFinish: { stabilityThreshold: 300, pollInterval: 100 },
+      persistent: true,
+      usePolling: true, // Force polling for better Windows compatibility
+      interval: 1000,
     });
 
-    this.messageWatcher.on("add", (fp: string) => this.handleMessage(fp));
-    this.messageWatcher.on("error", (err: unknown) => this.emit("error", err));
+    this.messageWatcher.on("add", (fp: string) => {
+      if (fp.endsWith(".json")) {
+        if (this.debug) console.log(`[OPENCODE] New message file detected: ${path.basename(fp)}`);
+        this.handleMessage(fp);
+      }
+    });
+    this.messageWatcher.on("error", (err: unknown) => {
+      if (this.debug) console.log(`[OPENCODE] Message watcher error: ${err}`);
+      this.emit("error", err);
+    });
   }
 
   /** Watch for new part content files (the actual text) */
   private watchParts(): void {
     if (!fs.existsSync(this.partDir)) return;
 
-    const glob = path.join(this.partDir, "**/*.json").replace(/\\/g, "/");
-    this.partWatcher = watch(glob, {
+    // Try simple directory watching instead of glob
+    if (this.debug) console.log(`[OPENCODE] Watching part directory: ${this.partDir}`);
+    
+    this.partWatcher = watch(this.partDir, {
       ignoreInitial: true,
       awaitWriteFinish: { stabilityThreshold: 300, pollInterval: 100 },
+      persistent: true,
+      usePolling: true, // Force polling for better Windows compatibility
+      interval: 1000,
     });
 
-    this.partWatcher.on("add", (fp: string) => this.handlePart(fp));
-    this.partWatcher.on("error", (err: unknown) => this.emit("error", err));
+    this.partWatcher.on("add", (fp: string) => {
+      if (fp.endsWith(".json")) {
+        if (this.debug) console.log(`[OPENCODE] New part file detected: ${path.basename(fp)}`);
+        this.handlePart(fp);
+      }
+    });
+    this.partWatcher.on("error", (err: unknown) => {
+      if (this.debug) console.log(`[OPENCODE] Part watcher error: ${err}`);
+      this.emit("error", err);
+    });
   }
 
   /** Parse a message metadata file and buffer it */
@@ -259,9 +299,10 @@ export class OpencodeWatcher extends EventEmitter {
         agent: meta?.agent || "",
       };
 
+      if (this.debug) console.log(`[OPENCODE] Emitting ${event.role} event: ${event.content.slice(0, 50)}...`);
       this.emit("event", event);
     } catch {
-      // malformed file, skip
+      if (this.debug) console.log(`[OPENCODE] Failed to parse part file: ${filePath}`);
     }
   }
 
