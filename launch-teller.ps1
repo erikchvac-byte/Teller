@@ -45,11 +45,13 @@ if ($existingProcess) {
     exit 0
 }
 
-# Ensure bun is in PATH for the new terminal
-$bunPath = "$env:USERPROFILE\.bun\bin"
-if (Test-Path $bunPath) {
-    $env:PATH = "$bunPath;$env:PATH"
+# Find full path to bun.exe (wt.exe won't inherit our PATH modifications)
+$bunExe = "$env:USERPROFILE\.bun\bin\bun.exe"
+if (-not (Test-Path $bunExe)) {
+    Write-Host "Error: bun.exe not found at $bunExe" -ForegroundColor Red
+    exit 1
 }
 
 # Launch new Windows Terminal with split panes
-& $wtPath -d "C:\Users\erikc" --title "Teller Workspace" `; opencode `; split-pane -H --size 0.25 -d "C:\Users\erikc\Dev\Termeller" bun run start
+# Use full path to bun.exe since wt.exe creates a new process that doesn't inherit our PATH
+& $wtPath -d "C:\Users\erikc" --title "Teller Workspace" `; opencode `; split-pane -H --size 0.25 -d "C:\Users\erikc\Dev\Termeller" "$bunExe" run start
