@@ -90,60 +90,60 @@ function App({ eventEmitter }: AppProps) {
     return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  // Fixed heights - content scrolls within observations box only
-  const OBSERVATIONS_HEIGHT = 15; // Fixed height for observations box
-  const OBSERVATIONS_VISIBLE_COUNT = 6; // Show last 6 observations (each takes ~2 lines)
+  const OBSERVATIONS_VISIBLE_COUNT = 6;
 
   return (
     <Box flexDirection="column" height="100%" backgroundColor="black">
-      {/* Header - Fixed at top, never scrolls */}
-      <Box flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={1} backgroundColor="black">
-        <Text color="cyan" backgroundColor="black">
-          {" "}
+      {/* Header */}
+      <Box flexDirection="row" justifyContent="space-between" paddingX={1} backgroundColor="black">
+        <Text bold color="cyan" backgroundColor="black">
+          TELLER_CLCC
         </Text>
-        <Box flexDirection="row" justifyContent="space-between">
-          <Text bold color="cyan" backgroundColor="black">
-            TELLER_CLCC
-          </Text>
-          <Text dimColor color="cyan" backgroundColor="black">
-            [{eventCount} events captured]
-          </Text>
-          <Text dimColor color="cyan" backgroundColor="black">
-            {status}
-          </Text>
-        </Box>
+        <Text dimColor color="cyan" backgroundColor="black">
+          [{eventCount} events]
+        </Text>
+        <Text dimColor color="cyan" backgroundColor="black">
+          {status}
+        </Text>
       </Box>
 
-      {/* Event Feed - Fixed at 10 lines, never scrolls */}
+      {/* Divider */}
+      <Box backgroundColor="black">
+        <Text backgroundColor="black"> </Text>
+      </Box>
+
+      {/* Event Feed */}
       <Box
         flexDirection="column"
-        height={10}
-        borderStyle="single"
-        borderColor="gray"
+        height={8}
         paddingX={1}
         overflow="hidden"
         backgroundColor="black"
       >
-        <Text bold underline backgroundColor="black">
-          Event Feed
+        <Text bold underline backgroundColor="black" color="gray">
+          Events
         </Text>
         {events.length === 0 ? (
-          <Text dimColor backgroundColor="black">Waiting for terminal activity...</Text>
+          <Text dimColor backgroundColor="black">Waiting for activity...</Text>
         ) : (
-          events.slice(-4).map((e) => (
+          events.slice(-6).map((e) => (
             <Text key={e.id} wrap="truncate" backgroundColor="black">
-              <Text dimColor backgroundColor="black">{time(e.timestamp)}</Text> <Text backgroundColor="black">{e.text}</Text>
+              <Text dimColor backgroundColor="black">{time(e.timestamp)}</Text>{" "}
+              <Text backgroundColor="black">{e.text}</Text>
             </Text>
           ))
         )}
       </Box>
 
-      {/* Observations - Fills remaining space to bottom */}
+      {/* Divider */}
+      <Box backgroundColor="black">
+        <Text backgroundColor="black"> </Text>
+      </Box>
+
+      {/* Observations - fills all remaining space */}
       <Box
         flexDirection="column"
         flexGrow={1}
-        borderStyle="single"
-        borderColor="yellow"
         paddingX={1}
         overflow="hidden"
         backgroundColor="black"
@@ -163,7 +163,7 @@ function App({ eventEmitter }: AppProps) {
         )}
       </Box>
 
-      {/* Footer - Fixed at bottom, never scrolls */}
+      {/* Footer */}
       <Box paddingX={1} backgroundColor="black">
         <Text dimColor backgroundColor="black">Ctrl+C to quit</Text>
       </Box>
