@@ -4,6 +4,7 @@ import type { TellerObservation } from "../agent/teller.js";
 import type { TerminalEvent } from "../capture/terminal-hook.js";
 import type { OpencodeEvent } from "../capture/opencode-watcher.js";
 import { ColoredText } from "../utils/colorize.js";
+import type { ColorMode } from "../utils/colorize.js";
 
 type AnyEvent = TerminalEvent | OpencodeEvent;
 
@@ -157,7 +158,7 @@ function App({ eventEmitter }: AppProps) {
           observations.slice(-OBSERVATIONS_VISIBLE_COUNT).map((o) => (
             <Box key={o.id} flexDirection="column" marginBottom={1} backgroundColor="black">
               <Text dimColor backgroundColor="black">{time(o.timestamp)}</Text>
-              <ColoredText text={o.text} />
+              <ColoredText text={o.text} mode="semantic" />
             </Box>
           ))
         )}
