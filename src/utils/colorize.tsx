@@ -351,19 +351,20 @@ interface ColoredTextProps {
 export function ColoredText({ text, mode = "keywords" }: ColoredTextProps): React.ReactElement {
   const segments = parseColoredText(text, mode);
 
+  // Flatten segments into a single line of text with color changes
+  // Use <Text> elements inline without nesting to avoid duplication issues
   return (
     <Text backgroundColor="black">
-      {segments.map((segment, index) =>
-        segment.color ? (
-          <Text key={index} color={COLORS[segment.color]} bold={segment.bold} backgroundColor="black">
-            {segment.text}
-          </Text>
-        ) : (
-          <Text key={index} backgroundColor="black">
-            {segment.text}
-          </Text>
-        )
-      )}
+      {segments.map((segment, index) => {
+        if (segment.color) {
+          return (
+            <Text key={index} color={COLORS[segment.color]} bold={segment.bold} backgroundColor="black">
+              {segment.text}
+            </Text>
+          );
+        }
+        return <Text key={index} backgroundColor="black">{segment.text}</Text>;
+      })}
     </Text>
   );
 }
