@@ -98,15 +98,16 @@ function parseKeywordText(text: string): Segment[] {
   const matches: Array<{ start: number; end: number; color: ColorKey; text: string }> = [];
 
   for (const [color, regex] of Object.entries(KEYWORDS)) {
-    let match;
     const regexCopy = new RegExp(regex.source, regex.flags);
-    while ((match = regexCopy.exec(text)) !== null) {
+    let currentMatch = regexCopy.exec(text);
+    while (currentMatch !== null) {
       matches.push({
-        start: match.index,
-        end: match.index + match[0].length,
+        start: currentMatch.index,
+        end: currentMatch.index + currentMatch[0].length,
         color: color as ColorKey,
-        text: match[0],
+        text: currentMatch[0],
       });
+      currentMatch = regexCopy.exec(text);
     }
   }
 
@@ -265,11 +266,13 @@ function parseSemanticText(text: string): Segment[] {
 
     // Build segments for this word
     let pos = 0;
+    let hasSegments = false;
 
     if (prefixMatch) {
       const prefixText = part.slice(0, prefixMatch.length);
       segments.push({ text: prefixText, color: prefixMatch.color, bold: true });
       pos = prefixMatch.length;
+      hasSegments = true;
     }
 
     const coreStart = pos;
@@ -277,15 +280,17 @@ function parseSemanticText(text: string): Segment[] {
 
     if (coreEnd > coreStart) {
       segments.push({ text: part.slice(coreStart, coreEnd) });
+      hasSegments = true;
     }
 
     if (suffixMatch) {
       const suffixText = part.slice(part.length - suffixMatch.length);
       segments.push({ text: suffixText, color: suffixMatch.color, bold: true });
+      hasSegments = true;
     }
 
     // If no prefix or suffix found, just add the word
-    if (!prefixMatch && !suffixMatch) {
+    if (!hasSegments) {
       segments.push({ text: part });
     }
   }
@@ -351,19 +356,19 @@ interface ColoredTextProps {
 export function ColoredText({ text, mode = "keywords" }: ColoredTextProps): React.ReactElement {
   const segments = parseColoredText(text, mode);
 
-  // Flatten segments into a single line of text with color changes
-  // Use <Text> elements inline without nesting to avoid duplication issues
+  // Wrap all segments in a single <Text> so they render inline (not one-per-line)
   return (
-    <Text backgroundColor="black">
+    <Text>
       {segments.map((segment, index) => {
+        const key = `${index}-${segment.color ?? 'nc'}`;
         if (segment.color) {
           return (
-            <Text key={index} color={COLORS[segment.color]} bold={segment.bold} backgroundColor="black">
+            <Text key={key} color={COLORS[segment.color]} bold={segment.bold}>
               {segment.text}
             </Text>
           );
         }
-        return <Text key={index} backgroundColor="black">{segment.text}</Text>;
+        return segment.text;
       })}
     </Text>
   );

@@ -21,7 +21,6 @@ export class TerminalHook extends EventEmitter {
   private lastLineCount = 0;
   private pollInterval: ReturnType<typeof setInterval> | null = null;
   private pollMs: number;
-  private debug: boolean = process.env.DEBUG === "true";
 
   constructor(pollMs = 3000) {
     super();
@@ -66,8 +65,6 @@ export class TerminalHook extends EventEmitter {
   }
 
   start(): void {
-    if (this.debug) console.log("[TERMINAL] Starting TerminalHook");
-    
     if (!fs.existsSync(this.historyPath)) {
       const platform = os.platform();
       const suggestion = platform === "win32" 
@@ -87,8 +84,6 @@ export class TerminalHook extends EventEmitter {
       this.lastLineCount = content.split("\n").length;
 
       this.emit("status", `Watching history: ${this.historyPath}`);
-      if (this.debug) console.log(`[TERMINAL] Watching history file with ${this.lastLineCount} existing lines`);
-
       this.pollInterval = setInterval(() => this.poll(), this.pollMs);
     } catch (err) {
       this.emit("error", new Error(`Failed to start terminal watcher: ${err instanceof Error ? err.message : String(err)}`));
@@ -103,7 +98,6 @@ export class TerminalHook extends EventEmitter {
 
       if (currentCount > this.lastLineCount) {
         const newLines = lines.slice(this.lastLineCount, currentCount);
-        if (this.debug) console.log(`[TERMINAL] Found ${newLines.length} new command(s)`);
         
         for (const line of newLines) {
           const trimmed = line.trim();
@@ -117,13 +111,11 @@ export class TerminalHook extends EventEmitter {
             source: "terminal",
           };
           
-          if (this.debug) console.log(`[TERMINAL] Emitting command: ${trimmed}`);
           this.emit("event", event);
         }
         this.lastLineCount = currentCount;
       }
     } catch (err) {
-      if (this.debug) console.log(`[TERMINAL] Error polling history: ${err}`);
       this.emit("error", err);
     }
   }

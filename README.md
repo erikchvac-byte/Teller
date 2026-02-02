@@ -42,6 +42,7 @@ Teller watches your terminal and opencode conversations, providing behavioral in
 ✅ **Clean UI layout** - Vertical stacking with fixed event feed (4 events) and observation feed (10 items)
 ✅ **Clean startup** - Clears terminal on launch for clean banner positioning
 ✅ **TELLER_CLCC branding** - Updated header with observational coding companion name
+✅ **Black background UI** - Floor-to-ceiling black background for clean visual aesthetic
 
 ## Current Status
 
@@ -65,3 +66,9 @@ Teller is now **fully functional** and captures real-time events from:
 - **Time window**: Updated from 1 to 5 minutes for startup snapshot
 - **Error handling**: Enhanced user-friendly error messages
 - **Documentation**: Updated all docs to reflect actual functionality
+
+### UI Enhancements
+- **Black background**: Implemented floor-to-ceiling black background across entire interface
+- **Text visibility**: Ensured proper text color contrast against black background
+- **Component optimization**: Simplified rendering structure for better performance
+- **Visual consistency**: Maintained existing color schemes and highlighting modes

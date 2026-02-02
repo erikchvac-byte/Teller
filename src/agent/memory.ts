@@ -26,7 +26,6 @@ export interface StoredObservation {
 export class Memory {
   private db: Database.Database;
   private sessionId: string;
-  private debug: boolean = process.env.DEBUG === "true";
 
   constructor(sessionId?: string) {
     this.sessionId =
@@ -38,8 +37,6 @@ export class Memory {
     this.db = new Database(dbPath);
     this.db.pragma("journal_mode = WAL");
     this.init();
-    
-    if (this.debug) console.log(`[MEMORY] Initialized with session: ${this.sessionId}`);
   }
 
   private init(): void {
@@ -76,18 +73,16 @@ export class Memory {
       event.source,
       event.content,
       event.timestamp,
-    );
-    this.db.pragma('wal_checkpoint(PASSIVE)');
-    if (this.debug) console.log(`[MEMORY] Added ${event.source} event: ${event.content.slice(0, 50)}...`);
-  }
+     );
+     this.db.pragma('wal_checkpoint(PASSIVE)');
+   }
 
   addObservation(observation: string): void {
     const stmt = this.db.prepare(
       "INSERT INTO observations (session_id, observation, timestamp) VALUES (?, ?, ?)",
-    );
-    stmt.run(this.sessionId, observation, Date.now());
-    if (this.debug) console.log(`[MEMORY] Added observation: ${observation}`);
-  }
+     );
+     stmt.run(this.sessionId, observation, Date.now());
+   }
 
   /** Get events from the current session since a given timestamp */
   getRecentEvents(sinceMs: number): StoredEvent[] {

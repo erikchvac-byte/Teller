@@ -52,7 +52,7 @@ function App({ eventEmitter }: AppProps) {
         }
 
         const tagPart = showTag ? `[${label}] ` : "";
-        text = `${tagPart}(${oc.role}) ${oc.content.slice(0, 60)}`;
+        text = `${tagPart}(${oc.role}) ${oc.content.slice(0, 120)}`;
       }
       setEvents((prev) => {
         const entry: LogEntry = {
@@ -95,22 +95,24 @@ function App({ eventEmitter }: AppProps) {
 
   return (
     <Box flexDirection="column" height="100%" backgroundColor="black">
+      {/* Floor-to-ceiling black background - everything inside is black except text */}
+      
       {/* Header */}
       <Box flexDirection="row" justifyContent="space-between" paddingX={1} backgroundColor="black">
-        <Text bold color="cyan" backgroundColor="black">
+        <Text bold color="cyan">
           TELLER_CLCC
         </Text>
-        <Text dimColor color="cyan" backgroundColor="black">
+        <Text dimColor color="cyan">
           [{eventCount} events]
         </Text>
-        <Text dimColor color="cyan" backgroundColor="black">
+        <Text dimColor color="cyan">
           {status}
         </Text>
       </Box>
 
       {/* Divider */}
       <Box backgroundColor="black">
-        <Text backgroundColor="black"> </Text>
+        <Text color="black"> </Text>
       </Box>
 
       {/* Event Feed */}
@@ -121,16 +123,16 @@ function App({ eventEmitter }: AppProps) {
         overflow="hidden"
         backgroundColor="black"
       >
-        <Text bold underline backgroundColor="black" color="gray">
+        <Text bold underline color="gray">
           Events
         </Text>
         {events.length === 0 ? (
-          <Text dimColor backgroundColor="black">Waiting for activity...</Text>
+          <Text dimColor>Waiting for activity...</Text>
         ) : (
           events.slice(-6).map((e) => (
-            <Text key={e.id} wrap="truncate" backgroundColor="black">
-              <Text dimColor backgroundColor="black">{time(e.timestamp)}</Text>{" "}
-              <Text backgroundColor="black">{e.text}</Text>
+            <Text key={e.id} wrap="truncate">
+              <Text dimColor>{time(e.timestamp)}</Text>{" "}
+              <Text color="white">{e.text}</Text>
             </Text>
           ))
         )}
@@ -138,10 +140,10 @@ function App({ eventEmitter }: AppProps) {
 
       {/* Divider */}
       <Box backgroundColor="black">
-        <Text backgroundColor="black"> </Text>
+        <Text color="black"> </Text>
       </Box>
 
-      {/* Observations - fills all remaining space */}
+      {/* Observations - BIG BLACK BOX - fills all remaining space */}
       <Box
         flexDirection="column"
         flexGrow={1}
@@ -149,24 +151,30 @@ function App({ eventEmitter }: AppProps) {
         overflow="hidden"
         backgroundColor="black"
       >
-        <Text bold underline color="yellow" backgroundColor="black">
+        <Text bold underline color="yellow">
           Observations
         </Text>
-        {observations.length === 0 ? (
-          <Text dimColor backgroundColor="black">Teller is watching... first analysis in ~15s</Text>
-        ) : (
-          observations.slice(-OBSERVATIONS_VISIBLE_COUNT).map((o) => (
-            <Box key={o.id} flexDirection="column" marginBottom={1} backgroundColor="black">
-              <Text dimColor backgroundColor="black">{time(o.timestamp)}</Text>
-              <ColoredText text={o.text} mode="semantic" />
-            </Box>
-          ))
-        )}
+        <Box flexDirection="column" flexGrow={1}>
+          {observations.length === 0 ? (
+            <Text dimColor>Teller is watching... first analysis in ~15s</Text>
+          ) : (
+            observations.slice(-OBSERVATIONS_VISIBLE_COUNT).reverse().map((o) => (
+              <Box key={o.id} flexDirection="column" marginBottom={1} backgroundColor="black">
+                <Text dimColor>{time(o.timestamp)}</Text>
+                <ColoredText text={o.text} mode="semantic" />
+              </Box>
+            ))
+          )}
+          {/* This empty box ensures the black space fills to the bottom */}
+          <Box flexGrow={1} backgroundColor="black">
+            <Text color="black"> </Text>
+          </Box>
+        </Box>
       </Box>
 
       {/* Footer */}
       <Box paddingX={1} backgroundColor="black">
-        <Text dimColor backgroundColor="black">Ctrl+C to quit</Text>
+        <Text dimColor>Ctrl+C to quit</Text>
       </Box>
     </Box>
   );

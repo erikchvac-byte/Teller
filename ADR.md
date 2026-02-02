@@ -1,124 +1,202 @@
-# Architecture Decision Record - Termeller
+# Termeller - Architecture Decision Records
 
-## Project Overview
+> Decision tracking for why we do what we do
 
-**Termeller** is a developer activity monitor (Teller) designed to track development activity. This document records architectural decisions, technical constraints, and design rationale for the project.
+## Overview
+
+This document captures architectural and implementation decisions made in the Termeller project. Each decision includes context, rationale, and consequences.
 
 ---
 
-## Architecture Decisions
+## ADR-001: Increase Event Content Display Limit
 
-### ADR-001: Windows Terminal Native Launcher
 **Status**: Accepted  
-**Date**: 2026-02-01
+**Date**: 2026-02-02  
+**Decision-makers**: Assistant, Stupid Human
 
-**Context**: 
-The development workflow requires running two concurrent processes:
-1. OpenCode terminal session for general development (at `C:\Users\erikc`)
-2. Teller app monitoring (`bun run start` from `C:\Users\erikc\Dev\Termeller`)
+### Context and Problem Statement
 
-Previously used PowerToys window arrangement, but native Windows Terminal integration provides:
-- Better process isolation
-- Consistent window management
-- No external dependency on PowerToys
-- Native split-pane support with configurable ratios
+The teller was displaying "two words for every word" with only ~10 spaces before content started. Events from OpenCode were being truncated mid-word, causing the semantic colorization parser to produce fragmented output.
 
-**Decision**: 
-Implement a PowerShell launcher script (`launch-teller.ps1`) that uses Windows Terminal's native `wt.exe` CLI to create a split workspace:
-- Left pane (75% width): OpenCode terminal at `PS C:\Users\erikc>` with opencode auto-launched
-- Right pane (25% width): Teller app running via `bun run start`
-- Desktop shortcut for one-click launch
-- Duplicate instance prevention via window title detection and focus
+### Decision
 
-**Rationale**:
-1. **Native over third-party**: Windows Terminal is pre-installed on Windows 11, PowerToys is not
-2. **Reproducibility**: Script-based launcher can be version-controlled and shared
-3. **Simplicity**: No custom Terminal profiles needed - uses default PowerShell profile
-4. **User experience**: Single click launch, no manual window arrangement
-5. **Duplicate prevention**: Avoids multiple Teller instances consuming resources
+Increased the content slice limit from 60 to 120 characters in `src/ui/window.tsx` line 55:
 
-**Alternatives Considered**:
-- **Custom Windows Terminal profiles**: Rejected - requires manual settings.json modification, not portable
-- **PowerToys FancyZones**: Rejected - external dependency, less reliable than native solution
-- **Batch file launcher**: Rejected - PowerShell provides better process control and COM access for shortcuts
+```typescript
+// Before
+text = `${tagPart}(${oc.role}) ${oc.content.slice(0, 60)}`;
 
-**Consequences**:
-- ✅ One-click workspace launch via desktop shortcut
-- ✅ Consistent 75/25 split ratio for all launches
-- ✅ No settings.json modifications required
-- ✅ Duplicate detection prevents multiple Teller instances
-- ⚠️ Requires `wt.exe` on PATH (standard for Windows Terminal installations)
-- ⚠️ Requires `bun` runtime installed and on PATH
-- ⚠️ Desktop shortcut is user-specific, not version-controlled
+// After
+text = `${tagPart}(${oc.role}) ${oc.content.slice(0, 120)}`;
+```
 
-**Testing**:
-- Manual verification required for window focus behavior
-- Automated syntax validation via `powershell -NoProfile -SyntaxOnly`
-- Process detection verification via `Get-Process`
+### Rationale
 
-**Implementation Details**:
-- Script location: `C:\Users\erikc\Dev\Termeller\launch-teller.ps1`
-- Shortcut location: `[Desktop]\Teller Workspace.lnk`
-- Window title: "Teller Workspace" (used for duplicate detection)
-- Duplicate detection: Find existing window by title, bring to foreground
-- Absolute paths throughout (no relative path dependencies)
-- Dynamic desktop path detection via `[Environment]::GetFolderPath('Desktop')`
+- 60 characters was too short, causing words to be cut in half
+- Fragmented words broke the semantic parser's word boundary detection
+- 120 characters provides better balance between screen real estate and readability
+- Terminal width is typically 80+ columns, so 120 chars is reasonable for most displays
+
+### Consequences
+
+**Good:**
+- Events display with complete words, not fragments
+- Semantic colorization works correctly on whole words
+- Better user readability with more context visible
+
+**Bad:**
+- Longer lines may wrap on narrow terminals (< 120 cols)
+- Slightly more memory usage per event (negligible)
 
 ---
 
-## Technical Constraints
+## ADR-002: Fix Semantic Mode Word Duplication
 
-### Runtime Dependencies
-- **Windows Terminal**: Required for `wt.exe` CLI
-- **Bun**: JavaScript runtime for executing Teller app
-- **PowerShell**: 5.1+ or PowerShell 7+ for launcher script
-- **OpenCode**: CLI tool for development terminal
+**Status**: Accepted  
+**Date**: 2026-02-02  
+**Decision-makers**: Assistant, Stupid Human
 
-### Environment Requirements
-- **OS**: Windows 10/11 with Windows Terminal installed
-- **PATH Requirements**: `wt.exe`, `bun`, `opencode` must be accessible
-- **Working Directory**: Teller app must run from `C:\Users\erikc\Dev\Termeller`
+### Context and Problem Statement
+
+In semantic coloring mode, every word was being rendered twice (e.g., "The" → "The|The", "user" → "user|user"). This made text unreadable and doubled the visual output.
+
+### Decision
+
+Added `hasSegments` flag in `parseSemanticText()` function in `src/utils/colorize.tsx` to prevent fallback word addition when prefix/core/suffix segments already exist:
+
+```typescript
+// Before
+if (!prefixMatch && !suffixMatch) {
+  segments.push({ text: part });
+}
+
+// After
+let hasSegments = false;
+// ... set hasSegments = true when adding segments ...
+if (!hasSegments) {
+  segments.push({ text: part });
+}
+```
+
+### Rationale
+
+The original logic always added the full word as fallback, even when the word was already split into prefix/core/suffix segments. This caused duplication because:
+
+1. Words WITH prefix/suffix: Added as segments (prefix + core + suffix) AND as fallback (full word)
+2. Words WITHOUT prefix/suffix: Correctly added only once via fallback
+
+The `hasSegments` flag tracks whether any segments were added, preventing the fallback from firing when unnecessary.
+
+### Consequences
+
+**Good:**
+- Words render exactly once, as intended
+- Semantic highlighting works correctly (prefixes/suffixes colored, core normal)
+- Text is readable and not duplicated
+
+**Bad:**
+- None identified
+
+### Confirmation
+
+Tested with manual script:
+```javascript
+parseColoredText("The user is experiencing spacing issues", "semantic")
+// Before: The|The| |user|user| |is|is| ...
+// After:  The| |user| |is| ...
+```
 
 ---
 
-## Known Issues
+## ADR-003: Implement Floor-to-Ceiling Black Background
 
-None at this time.
+**Status**: Accepted  
+**Date**: 2026-02-02  
+**Decision-makers**: Assistant, Stupid Human
+
+### Context and Problem Statement
+
+The Teller UI had a default terminal background which didn't provide the desired visual aesthetic. User requested a completely black background for the entire interface while maintaining text readability and existing color schemes.
+
+### Decision
+
+Implemented floor-to-ceiling black background by:
+
+1. **Background Color Changes**: Added `backgroundColor="black"` to all Box components in `src/ui/window.tsx`
+2. **Text Color Corrections**: Added explicit `color="white"` for event text, removed redundant background colors from Text components
+3. **Space Filling**: Added empty Box with flexGrow=1 to ensure black fills entire remaining vertical space
+4. **Component Structure**: Simplified ColoredText component to render inline without nesting issues
+
+### Rationale
+
+- User explicitly requested black background aesthetic
+- Box components inherit background to children, Text elements only need foreground colors
+- Explicit white text ensures visibility against black background
+- Empty filler box prevents gaps in black coverage
+
+### Consequences
+
+**Good:**
+- Complete black background as requested
+- Maintains all existing colorization functionality (keywords, semantic modes)
+- Better visual contrast and readability
+- Cleaner component structure
+
+**Bad:**
+- None identified - implementation meets user requirements exactly
+
+### Confirmation
+
+Manual testing confirmed:
+- Entire UI renders with black background
+- Text colors remain visible and functional
+- Semantic and keyword highlighting work correctly
+- No visual gaps in background coverage
 
 ---
 
-## Open Questions
+## Decision Log
 
-1. Should the launcher verify that `opencode` successfully starts before proceeding?
-2. Should the script include health checks for Teller app startup?
-3. Should duplicate detection also check for crashed/hung Teller processes?
-
----
-
-## Future Considerations
-
-- **Cross-user portability**: Make paths configurable for other developers
-- **Error recovery**: Add automatic restart on Teller crash detection
-- **Logging**: Optional debug logging for troubleshooting launch issues
-- **Profile variants**: Support different split ratios for different screen sizes
-- **Start Menu integration**: Add Start Menu shortcut alongside desktop shortcut
+| ADR | Date | Status | Title |
+|-----|------|--------|-------|
+| 001 | 2026-02-02 | Accepted | Increase Event Content Display Limit |
+| 002 | 2026-02-02 | Accepted | Fix Semantic Mode Word Duplication |
+| 003 | 2026-02-02 | Accepted | Implement Floor-to-Ceiling Black Background |
 
 ---
 
-## References
+## Template for Future ADRs
 
-### Key Files
-- `launch-teller.ps1`: Main launcher script (planned)
-- Work Plan: `.sisyphus/plans/teller-launcher.md`
+```markdown
+## ADR-XXX: [Title]
 
-### External Documentation
-- [Windows Terminal CLI Arguments](https://learn.microsoft.com/en-us/windows/terminal/command-line-arguments)
-- [PowerShell Environment.GetFolderPath](https://learn.microsoft.com/en-us/dotnet/api/system.environment.getfolderpath)
+**Status**: {Proposed | Accepted | Rejected | Deprecated | Superseded by ADR-XXX}  
+**Date**: YYYY-MM-DD  
+**Decision-makers**: [Names]
 
----
+### Context and Problem Statement
 
-## Change Log
+[Why was this decision needed?]
 
-| Date | Decision | Impact |
-|------|----------|--------|
-| 2026-02-01 | ADR-001: Windows Terminal native launcher | New workspace launcher implementation |
+### Decision
+
+[What did we choose?]
+
+### Rationale
+
+[Why this choice over alternatives?]
+
+### Consequences
+
+**Good:**
+- [Benefit 1]
+- [Benefit 2]
+
+**Bad:**
+- [Trade-off 1]
+- [Trade-off 2]
+
+### Confirmation
+
+[How was this verified? Tests? Manual testing? Code review?]
+```
