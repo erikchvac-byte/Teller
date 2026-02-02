@@ -85,14 +85,14 @@ export function ColoredText({ text }: { text: string }): React.ReactElement {
   const segments = parseColoredText(text);
   
   return (
-    <Text>
+    <Text backgroundColor="black">
       {segments.map((segment, index) => (
         segment.color ? (
-          <Text key={index} color={COLORS[segment.color]} bold>
+          <Text key={index} color={COLORS[segment.color]} bold backgroundColor="black">
             {segment.text}
           </Text>
         ) : (
-          <Text key={index}>{segment.text}</Text>
+          <Text key={index} backgroundColor="black">{segment.text}</Text>
         )
       ))}
     </Text>

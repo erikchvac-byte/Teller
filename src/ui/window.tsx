@@ -95,9 +95,9 @@ function App({ eventEmitter }: AppProps) {
   const OBSERVATIONS_VISIBLE_COUNT = 6; // Show last 6 observations (each takes ~2 lines)
 
   return (
-    <Box flexDirection="column" padding={1}>
+    <Box flexDirection="column" height="100%" backgroundColor="black">
       {/* Header - Fixed at top, never scrolls */}
-      <Box flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={1}>
+      <Box flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={1} backgroundColor="black">
         <Text color="cyan" backgroundColor="black">
           {" "}
         </Text>
@@ -122,39 +122,41 @@ function App({ eventEmitter }: AppProps) {
         borderColor="gray"
         paddingX={1}
         overflow="hidden"
+        backgroundColor="black"
       >
-        <Text bold underline>
+        <Text bold underline backgroundColor="black">
           Event Feed
         </Text>
         {events.length === 0 ? (
-          <Text dimColor>Waiting for terminal activity...</Text>
+          <Text dimColor backgroundColor="black">Waiting for terminal activity...</Text>
         ) : (
           events.slice(-4).map((e) => (
-            <Text key={e.id} wrap="truncate">
-              <Text dimColor>{time(e.timestamp)}</Text> <Text>{e.text}</Text>
+            <Text key={e.id} wrap="truncate" backgroundColor="black">
+              <Text dimColor backgroundColor="black">{time(e.timestamp)}</Text> <Text backgroundColor="black">{e.text}</Text>
             </Text>
           ))
         )}
       </Box>
 
-      {/* Observations - Fixed height, scrolls internally */}
+      {/* Observations - Fills remaining space to bottom */}
       <Box
         flexDirection="column"
-        height={OBSERVATIONS_HEIGHT}
+        flexGrow={1}
         borderStyle="single"
         borderColor="yellow"
         paddingX={1}
         overflow="hidden"
+        backgroundColor="black"
       >
-        <Text bold underline color="yellow">
+        <Text bold underline color="yellow" backgroundColor="black">
           Observations
         </Text>
         {observations.length === 0 ? (
-          <Text dimColor>Teller is watching... first analysis in ~15s</Text>
+          <Text dimColor backgroundColor="black">Teller is watching... first analysis in ~15s</Text>
         ) : (
           observations.slice(-OBSERVATIONS_VISIBLE_COUNT).map((o) => (
-            <Box key={o.id} flexDirection="column" marginBottom={1}>
-              <Text dimColor>{time(o.timestamp)}</Text>
+            <Box key={o.id} flexDirection="column" marginBottom={1} backgroundColor="black">
+              <Text dimColor backgroundColor="black">{time(o.timestamp)}</Text>
               <ColoredText text={o.text} />
             </Box>
           ))
@@ -162,8 +164,8 @@ function App({ eventEmitter }: AppProps) {
       </Box>
 
       {/* Footer - Fixed at bottom, never scrolls */}
-      <Box paddingX={1}>
-        <Text dimColor>Ctrl+C to quit</Text>
+      <Box paddingX={1} backgroundColor="black">
+        <Text dimColor backgroundColor="black">Ctrl+C to quit</Text>
       </Box>
     </Box>
   );
