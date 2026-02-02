@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { render, Box, Text } from "ink";
 import type { TellerObservation } from "../agent/teller.js";
 import type { TerminalEvent } from "../capture/terminal-hook.js";
@@ -22,7 +22,6 @@ interface LogEntry {
   text: string;
   type: "event" | "observation" | "status" | "error";
   timestamp: number;
-  label?: string;
 }
 
 let nextId = 0;
@@ -32,27 +31,19 @@ function App({ eventEmitter }: AppProps) {
   const [observations, setObservations] = useState<LogEntry[]>([]);
   const [status, setStatus] = useState("Starting Teller...");
   const [eventCount, setEventCount] = useState(0);
-  const lastLabelRef = useRef<string>("");
 
   useEffect(() => {
     eventEmitter.on("event", (e: AnyEvent) => {
       setEventCount((c) => c + 1);
       let text: string;
-      let label: string | undefined;
 
       if (e.source === "terminal") {
         text = `$ ${(e as TerminalEvent).command}`;
       } else {
         const oc = e as OpencodeEvent;
-        label = [oc.provider, oc.model].filter(Boolean).join("/") || undefined;
-
-        const showTag = label && label !== lastLabelRef.current;
-        if (label && label !== lastLabelRef.current) {
-          lastLabelRef.current = label;
-        }
-
-        const tagPart = showTag ? `[${label}] ` : "";
-        text = `${tagPart}(${oc.role}) ${oc.content.slice(0, 120)}`;
+        // RULE: Naming convention - Human/Teller (no model/provider tags)
+        const role = oc.role === "user" ? "Human" : "Teller";
+        text = `(${role}) ${oc.content.slice(0, 60)}`;
       }
       setEvents((prev) => {
         const entry: LogEntry = {
@@ -60,7 +51,6 @@ function App({ eventEmitter }: AppProps) {
           text,
           type: "event",
           timestamp: Date.now(),
-          label,
         };
         return [...prev.slice(-49), entry]; // keep last 50
       });
@@ -95,10 +85,9 @@ function App({ eventEmitter }: AppProps) {
 
   return (
     <Box flexDirection="column" height="100%" backgroundColor="black">
-      {/* Floor-to-ceiling black background - everything inside is black except text */}
-      
-      {/* Header */}
-      <Box flexDirection="row" justifyContent="space-between" paddingX={1} backgroundColor="black">
+      {/* SECTION: BANNER - Fixed header with app title, event count, status */}
+      {/* RULE: Single line, title bold/cyan, blank line padding above/below */}
+      <Box flexDirection="row" justifyContent="space-between" paddingX={1}>
         <Text bold color="cyan">
           TELLER_CLCC
         </Text>
@@ -110,18 +99,19 @@ function App({ eventEmitter }: AppProps) {
         </Text>
       </Box>
 
-      {/* Divider */}
-      <Box backgroundColor="black">
-        <Text color="black"> </Text>
+      {/* Divider: Blank line for visual separation */}
+      <Box>
+        <Text> </Text>
       </Box>
 
-      {/* Event Feed */}
+      {/* SECTION: EVENT FEED - Scrollable activity log */}
+      {/* RULE: Fixed height, tail slicing for scroll, blank line padding below */}
+      {/* RULE: Naming: Human/Teller (no model tags) */}
       <Box
         flexDirection="column"
         height={8}
         paddingX={1}
         overflow="hidden"
-        backgroundColor="black"
       >
         <Text bold underline color="gray">
           Events
@@ -132,48 +122,48 @@ function App({ eventEmitter }: AppProps) {
           events.slice(-6).map((e) => (
             <Text key={e.id} wrap="truncate">
               <Text dimColor>{time(e.timestamp)}</Text>{" "}
-              <Text color="white">{e.text}</Text>
+              <Text>{e.text}</Text>
             </Text>
           ))
         )}
       </Box>
 
-      {/* Divider */}
-      <Box backgroundColor="black">
-        <Text color="black"> </Text>
+      {/* Divider: Blank line for visual separation */}
+      <Box>
+        <Text> </Text>
       </Box>
 
-      {/* Observations - BIG BLACK BOX - fills all remaining space */}
+      {/* SECTION: OBSERVER - Expandable colored observations */}
+      {/* RULE: Fills remaining space, semantic colors, explicit footer padding */}
       <Box
         flexDirection="column"
         flexGrow={1}
         paddingX={1}
         overflow="hidden"
-        backgroundColor="black"
       >
         <Text bold underline color="yellow">
           Observations
         </Text>
-        <Box flexDirection="column" flexGrow={1}>
-          {observations.length === 0 ? (
-            <Text dimColor>Teller is watching... first analysis in ~15s</Text>
-          ) : (
-            observations.slice(-OBSERVATIONS_VISIBLE_COUNT).reverse().map((o) => (
-              <Box key={o.id} flexDirection="column" marginBottom={1} backgroundColor="black">
-                <Text dimColor>{time(o.timestamp)}</Text>
-                <ColoredText text={o.text} mode="semantic" />
-              </Box>
-            ))
-          )}
-          {/* This empty box ensures the black space fills to the bottom */}
-          <Box flexGrow={1} backgroundColor="black">
-            <Text color="black"> </Text>
-          </Box>
-        </Box>
+        {observations.length === 0 ? (
+          <Text dimColor>Teller is watching... first analysis in ~15s</Text>
+        ) : (
+          observations.slice(-OBSERVATIONS_VISIBLE_COUNT).map((o) => (
+            <Box key={o.id} flexDirection="column" marginBottom={1}>
+              <Text dimColor>{time(o.timestamp)}</Text>
+              <ColoredText text={o.text} mode="semantic" />
+            </Box>
+          ))
+        )}
       </Box>
 
-      {/* Footer */}
-      <Box paddingX={1} backgroundColor="black">
+      {/* Divider: Explicit blank line padding above footer */}
+      <Box>
+        <Text> </Text>
+      </Box>
+
+      {/* SECTION: FOOTER - Fixed quit instruction */}
+      {/* RULE: Pinned bottom, separated from content by blank line */}
+      <Box paddingX={1}>
         <Text dimColor>Ctrl+C to quit</Text>
       </Box>
     </Box>

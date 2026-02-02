@@ -7,18 +7,7 @@ import { Memory } from "./agent/memory.js";
 import { TellerAgent } from "./agent/teller.js";
 import { renderApp } from "./ui/window.js";
 
-// Clear terminal screen for clean startup
-try {
-  // Try multiple clear methods for Windows PowerShell
-  execSync("cls", { stdio: "inherit" });
-} catch {
-  try {
-    execSync("clear", { stdio: "inherit" });
-  } catch {
-    // Fallback: emit ANSI clear sequence
-    process.stdout.write("\x1b[2J\x1b[H");
-  }
-}
+// Don't clear terminal - preserve PowerShell base layer for overlay display
 
 /**
  * Central event bus that bridges capture sources, the agent, and the UI.

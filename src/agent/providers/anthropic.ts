@@ -36,4 +36,5 @@ Guidelines:
 - Note context shifts and what triggered them
 - If nothing notable, return empty string
 - Reference past sessions when patterns resurface`;
+  }
 }
