@@ -3,6 +3,7 @@ import { render, Box, Text } from "ink";
 import type { TellerObservation } from "../agent/teller.js";
 import type { TerminalEvent } from "../capture/terminal-hook.js";
 import type { OpencodeEvent } from "../capture/opencode-watcher.js";
+import { ColoredText } from "../utils/colorize.js";
 
 type AnyEvent = TerminalEvent | OpencodeEvent;
 
@@ -89,72 +90,78 @@ function App({ eventEmitter }: AppProps) {
     return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  // Fixed heights - content scrolls within observations box only
+  const OBSERVATIONS_HEIGHT = 15; // Fixed height for observations box
+  const OBSERVATIONS_VISIBLE_COUNT = 6; // Show last 6 observations (each takes ~2 lines)
+
   return (
     <Box flexDirection="column" padding={1}>
-      {/* Header */}
+      {/* Header - Fixed at top, never scrolls */}
       <Box flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={1}>
-        <Text bold color="cyan" backgroundColor="black">
-          TELLER_CLCC
+        <Text color="cyan" backgroundColor="black">
+          {" "}
         </Text>
-        <Text dimColor>
-          [{eventCount} events captured]
-        </Text>
-      </Box>
-
-      {/* Status */}
-      <Box marginY={0} paddingX={1}>
-        <Text dimColor>{status}</Text>
-      </Box>
-
-      {/* Vertical layout - Event Feed (5 lines) + Observations (fills rest) */}
-      <Box flexDirection="column" flexGrow={1}>
-        {/* Top: Event Feed - 5 lines tall, full width */}
-        <Box
-          flexDirection="column"
-          height={5}
-          borderStyle="single"
-          borderColor="gray"
-          paddingX={1}
-        >
-          <Text bold underline>
-            Event Feed
+        <Box flexDirection="row" justifyContent="space-between">
+          <Text bold color="cyan" backgroundColor="black">
+            TELLER_CLCC
           </Text>
-          {events.length === 0 ? (
-            <Text dimColor>Waiting for terminal activity...</Text>
-          ) : (
-            events.slice(-4).map((e) => (
-              <Text key={e.id} wrap="truncate">
-                <Text dimColor>{time(e.timestamp)}</Text> <Text>{e.text}</Text>
-              </Text>
-            ))
-          )}
-        </Box>
-
-        {/* Bottom: Observations - fills remaining space, full width */}
-        <Box
-          flexDirection="column"
-          flexGrow={1}
-          borderStyle="single"
-          borderColor="yellow"
-          paddingX={1}
-        >
-          <Text bold underline color="yellow">
-            Observations
+          <Text dimColor color="cyan" backgroundColor="black">
+            [{eventCount} events captured]
           </Text>
-          {observations.length === 0 ? (
-            <Text dimColor>Teller is watching... first analysis in ~15s</Text>
-          ) : (
-            observations.slice(-10).map((o) => (
-              <Box key={o.id} flexDirection="column" marginBottom={1}>
-                <Text dimColor>{time(o.timestamp)}</Text>
-                <Text color="yellow">{o.text}</Text>
-              </Box>
-            ))
-          )}
+          <Text dimColor color="cyan" backgroundColor="black">
+            {status}
+          </Text>
         </Box>
       </Box>
 
-      {/* Footer */}
+      {/* Event Feed - Fixed at 10 lines, never scrolls */}
+      <Box
+        flexDirection="column"
+        height={10}
+        borderStyle="single"
+        borderColor="gray"
+        paddingX={1}
+        overflow="hidden"
+      >
+        <Text bold underline>
+          Event Feed
+        </Text>
+        {events.length === 0 ? (
+          <Text dimColor>Waiting for terminal activity...</Text>
+        ) : (
+          events.slice(-4).map((e) => (
+            <Text key={e.id} wrap="truncate">
+              <Text dimColor>{time(e.timestamp)}</Text> <Text>{e.text}</Text>
+            </Text>
+          ))
+        )}
+      </Box>
+
+      {/* Observations - Fixed height, scrolls internally */}
+      <Box
+        flexDirection="column"
+        height={OBSERVATIONS_HEIGHT}
+        borderStyle="single"
+        borderColor="yellow"
+        paddingX={1}
+        overflow="hidden"
+      >
+        <Text bold underline color="yellow">
+          Observations
+        </Text>
+        {observations.length === 0 ? (
+          <Text dimColor>Teller is watching... first analysis in ~15s</Text>
+        ) : (
+          observations.slice(-OBSERVATIONS_VISIBLE_COUNT).map((o) => (
+            <Box key={o.id} flexDirection="column" marginBottom={1}>
+              <Text dimColor>{time(o.timestamp)}</Text>
+              <ColoredText text={o.text} />
+            </Box>
+          ))
+        )}
+      </Box>
+
+      {/* Footer - Fixed at bottom, never scrolls */}
       <Box paddingX={1}>
         <Text dimColor>Ctrl+C to quit</Text>
       </Box>
