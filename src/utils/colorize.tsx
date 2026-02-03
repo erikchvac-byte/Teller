@@ -84,7 +84,7 @@ const SUFFIXES = [
   { suffix: "ical", color: "magenta" as ColorKey },
 ];
 
-interface Segment {
+export interface Segment {
   text: string;
   color?: ColorKey;
   bold?: boolean;

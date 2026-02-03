@@ -227,6 +227,9 @@ export class EnhancedTellerAgent {
       const time = new Date(e.timestamp).toLocaleTimeString();
       if (e.source === "terminal") {
         parts.push(`[${time}] $ ${e.content}`);
+      } else if (e.source === "git") {
+        // Git events show actual code changes - this is the REAL work evidence
+        parts.push(`[${time}] [GIT ${e.type}]\n${e.content.slice(0, 1000)}`);
       } else {
         parts.push(`[${time}] [opencode/${e.type}] ${e.content.slice(0, 500)}`);
       }

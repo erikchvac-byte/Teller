@@ -66,33 +66,43 @@ function getGitHead(): string {
     return execSync("git rev-parse HEAD", { 
       encoding: "utf8", 
       timeout: 3000,
-      cwd: projectDir
+      cwd: projectDir,
+      stdio: ['pipe', 'pipe', 'pipe'] // Capture stderr to prevent console pollution
     }).trim();
   } catch {
     return "";
   }
 }
 
+// Track last unstaged diff hash to avoid duplicates
+let lastUnstagedHash = "";
+
+// Simple hash for deduplication
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return hash.toString(16);
+}
+
 // Capture git diff showing actual code changes
 function captureGitDiff() {
   try {
-    process.stderr.write(`[GitDiff] Running diff check...\n`);
-    
     const currentHead = getGitHead();
-    process.stderr.write(`[GitDiff] Current HEAD: ${currentHead.slice(0, 7)}, Last: ${lastGitHead.slice(0, 7)}\n`);
     
     // Check for new commits by comparing HEAD
-    if (currentHead && currentHead !== lastGitHead) {
+    if (currentHead && currentHead !== lastGitHead && lastGitHead !== "") {
       // Get all commits since last check
       const commits = execSync(`git log ${lastGitHead}..HEAD --oneline`, { 
         encoding: "utf8", 
         timeout: 5000,
-        cwd: projectDir
+        cwd: projectDir,
+        stdio: ['pipe', 'pipe', 'pipe']
       }).trim();
       
       if (commits) {
-        process.stderr.write(`[GitDiff] New commits detected:\n${commits}\n`);
-        
         // Get diff for each new commit
         const commitLines = commits.split('\n');
         for (const commit of commitLines) {
@@ -101,72 +111,73 @@ function captureGitDiff() {
             const diffOutput = execSync(`git show ${commitHash}`, { 
               encoding: "utf8", 
               timeout: 10000,
-              cwd: projectDir
+              cwd: projectDir,
+              stdio: ['pipe', 'pipe', 'pipe']
             }).trim();
             
             // Truncate diff to reasonable size (first 2000 chars)
             const diffSummary = diffOutput.slice(0, 2000);
             
-            process.stderr.write(`[GitDiff] Commit ${commitHash.slice(0, 7)}: ${diffSummary.replace(/\n/g, " ").slice(0, 150)}...\n`);
-            
             memory.addEvent({
-              type: "git_diff",
+              type: "git_commit",
               source: "git",
-              content: `commit ${commitHash.slice(0, 7)}: ${diffSummary}`,
+              content: `commit ${commitHash.slice(0, 7)}:\n${diffSummary}`,
               timestamp: Date.now(),
             });
             
             bus.emit("event", {
-              type: "git_diff",
+              type: "git_commit",
               source: "git",
-              command: `commit ${commitHash.slice(0, 7)}: ${diffSummary}`,
+              command: `commit ${commitHash.slice(0, 7)}:\n${diffSummary}`,
               timestamp: Date.now(),
             });
           }
         }
       }
-      
+    }
+    
+    // Update lastGitHead after processing
+    if (currentHead) {
       lastGitHead = currentHead;
     }
     
-    // Also capture uncommitted changes
+    // Also capture uncommitted changes (but deduplicate)
     const unstagedDiff = execSync("git diff --unified=1", { 
       encoding: "utf8", 
       timeout: 5000,
-      cwd: projectDir
+      cwd: projectDir,
+      stdio: ['pipe', 'pipe', 'pipe']
     }).trim();
     
     if (unstagedDiff) {
-      const diffSummary = unstagedDiff.slice(0, 2000);
+      const diffHash = simpleHash(unstagedDiff);
       
-      process.stderr.write(`[GitDiff] Unstaged changes detected\n`);
-      process.stderr.write(`[GitDiff] Diff: ${diffSummary.replace(/\n/g, " ").slice(0, 150)}...\n`);
-      
-      memory.addEvent({
-        type: "git_diff",
-        source: "git",
-        content: `unstaged: ${diffSummary}`,
-        timestamp: Date.now(),
-      });
-      
-      bus.emit("event", {
-        type: "git_diff",
-        source: "git",
-        command: `unstaged: ${diffSummary}`,
-        timestamp: Date.now(),
-      });
+      // Only emit if diff changed since last time
+      if (diffHash !== lastUnstagedHash) {
+        lastUnstagedHash = diffHash;
+        const diffSummary = unstagedDiff.slice(0, 2000);
+        
+        memory.addEvent({
+          type: "git_unstaged",
+          source: "git",
+          content: `unstaged changes:\n${diffSummary}`,
+          timestamp: Date.now(),
+        });
+        
+        bus.emit("event", {
+          type: "git_unstaged",
+          source: "git",
+          command: `unstaged:\n${diffSummary}`,
+          timestamp: Date.now(),
+        });
+      }
+    } else {
+      // Reset hash when no unstaged changes
+      lastUnstagedHash = "";
     }
-    
-    process.stderr.write(`[GitDiff] Diff check complete\n`);
     
   } catch (err) {
-    // Git commands might fail, just log and continue
-    if (!lastGitHead) {
-      // Only log first error to avoid spam
-      process.stderr.write(`[GitDiff] Error: ${err instanceof Error ? err.message : String(err)}\n`);
-    } else {
-      process.stderr.write(`[GitDiff] Error in polling: ${err instanceof Error ? err.message.slice(0, 100) : String(err).slice(0, 100)}\n`);
-    }
+    // Git commands might fail silently - this is fine
   }
 }
 
@@ -174,13 +185,10 @@ function captureGitDiff() {
 lastGitHead = getGitHead();
 
 // Initial diff capture
-process.stderr.write("[GitDiff] Starting git diff capture...\n");
 captureGitDiff();
 
 // Poll for git changes
 setInterval(captureGitDiff, GIT_DIFF_INTERVAL);
-
-bus.emit("status", "Using git diff capture for actual code changes...");
 
 // --- Agent ---
 // Import Teller2 functionality conditionally
@@ -190,7 +198,8 @@ import { isTeller2Enabled, createTeller2 } from "./teller2.js";
 let agent: TellerAgent | any;
 if (isTeller2Enabled()) {
   console.log("[Termeller] Teller2 features detected - using enhanced pattern recognition");
-  const teller2 = createTeller2(bus);
+  // Pass global memory so git events reach the agent
+  const teller2 = createTeller2(bus, memory);
   agent = teller2.agent;
 } else {
   console.log("[Termeller] Using classic Teller");

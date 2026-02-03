@@ -1,0 +1,29 @@
+[GitDiff] Starting git diff capture...
+[GitDiff] Running diff check...
+[GitDiff] Current HEAD: c1c5440, Last: c1c5440
+[GitDiff] Diff check complete
+[Termeller] Using classic Teller
+ TELLER_CLCC                   [0 events]                    Starting Teller...
+
+ Events
+ Waiting for activity...
+
+
+
+
+
+
+
+ Observations
+ Teller is watching... first analysis in ~15s
+
+
+
+
+
+
+
+
+
+ Ctrl+C to quit
+

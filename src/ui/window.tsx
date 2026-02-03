@@ -5,8 +5,9 @@ import type { TerminalEvent } from "../capture/terminal-hook.js";
 import type { OpencodeEvent } from "../capture/opencode-watcher.js";
 import { ColoredText } from "../utils/colorize.js";
 import type { ColorMode } from "../utils/colorize.js";
+import { DyslexiaText } from "./dyslexia-text.js";
 
-type AnyEvent = TerminalEvent | OpencodeEvent | { type: "git_diff", source: "git", command: string, timestamp: number };
+type AnyEvent = TerminalEvent | OpencodeEvent | { type: "git_commit" | "git_unstaged", source: "git", command: string, timestamp: number };
 
 interface AppProps {
   eventEmitter: {
@@ -73,20 +74,25 @@ function App({ eventEmitter }: AppProps) {
       if (e.source === "terminal") {
         text = `$ ${(e as TerminalEvent).command}`;
       } else if (e.source === "git") {
-        // Format git diff events to show key changes
-        const gitCommand = (e as { command: string }).command;
-        if (gitCommand.startsWith("commit")) {
-          // Extract commit hash and first line of diff
-          const lines = gitCommand.split('\n');
-          text = `🔧 ${lines[0].slice(0, 40)}...`;
+        // Format git events to show key changes
+        const gitEvent = e as { type: string, command: string };
+        if (gitEvent.type === "git_commit") {
+          // Extract first meaningful line from commit
+          const lines = gitEvent.command.split('\n');
+          const summary = lines.find(l => l.startsWith('+') && !l.startsWith('+++')) || lines[0];
+          text = `📝 commit: ${summary?.slice(0, 50) || lines[0].slice(0, 50)}`;
         } else {
-          text = `🔧 ${gitCommand.slice(0, 60)}`;
+          // Unstaged changes - show what file changed
+          const lines = gitEvent.command.split('\n');
+          const diffLine = lines.find(l => l.startsWith('diff --git')) || "";
+          const file = diffLine.match(/b\/(.+)$/)?.[1] || "files";
+          text = `✏️ editing: ${file}`;
         }
       } else {
         const oc = e as OpencodeEvent;
         // RULE: Naming convention - Human/Teller (no model/provider tags)
         const role = oc.role === "user" ? "Human" : "Teller";
-        text = `(${role}) ${oc.content.slice(0, 60)}`;
+        text = `(${role}) ${(oc.content || "").slice(0, 60)}`;
       }
       setEvents((prev) => {
         const entry: LogEntry = {

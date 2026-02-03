@@ -9,13 +9,16 @@ import { AnthropicProvider } from "./agent/providers/anthropic.js";
 /**
  * Create a Teller2 agent with enhanced pattern recognition
  * This is a drop-in replacement for the standard Teller setup
+ * 
+ * @param bus - Event emitter for observations
+ * @param existingMemory - Optional: use existing Memory instance to share events with other capture sources
  */
-export function createTeller2(bus: EventEmitter): {
+export function createTeller2(bus: EventEmitter, existingMemory?: Memory): {
   agent: EnhancedTellerAgent;
   memory: Memory;
 } {
-  // Create regular memory first
-  const memory = new Memory();
+  // Use existing memory if provided, otherwise create new one
+  const memory = existingMemory || new Memory();
   
   // Create vector-enhanced memory (optional)
   let vectorMemory: VectorEnhancedMemory | undefined;
