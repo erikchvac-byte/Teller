@@ -54,9 +54,9 @@ function App({ eventEmitter }: AppProps) {
   }, []);
 
   // Height calculations for deterministic layout
-  const HEADER_HEIGHT = 1;  // title line
+  const HEADER_HEIGHT = 1;  // banner (single line)
   const DIVIDER_HEIGHT = 1; // blank line
-  const EVENTS_HEIGHT = 8;  // events section
+  const EVENTS_HEIGHT = 6;  // events section - compact single-line format
   const FOOTER_HEIGHT = 1;   // quit instruction
   const PADDING = 2;         // dividers around events and observations
 
@@ -135,18 +135,21 @@ function App({ eventEmitter }: AppProps) {
 
   return (
     <Box flexDirection="column" height={dimensions.rows} backgroundColor="black">
-      {/* SECTION: BANNER - Fixed header with app title, event count, status */}
-      {/* RULE: Single line, title bold/cyan, blank line padding above/below */}
-      <Box flexDirection="row" justifyContent="space-between" paddingX={1}>
+      {/* SECTION: BANNER - Single line: Name • Events • Status */}
+      <Box flexDirection="row" paddingX={1}>
         <Text bold color="cyan">
-          TELLER_CLCC
+          TELLER
         </Text>
+        <Text dimColor color="cyan"> • </Text>
         <Text dimColor color="cyan">
           [{eventCount} events]
         </Text>
-        <Text dimColor color="cyan">
-          {status}
-        </Text>
+        <Text dimColor color="cyan"> • </Text>
+        <Box flexGrow={1}>
+          <Text dimColor color="cyan" wrap="truncate">
+            {status}
+          </Text>
+        </Box>
       </Box>
 
       {/* Divider: Blank line for visual separation */}
@@ -154,29 +157,28 @@ function App({ eventEmitter }: AppProps) {
         <Text> </Text>
       </Box>
 
-      {/* SECTION: EVENT FEED - Scrollable activity log */}
-      {/* RULE: Fixed height, tail slicing for scroll, blank line padding below */}
-      {/* RULE: Naming: Human/Teller (no model tags) */}
-      <Box
-        flexDirection="column"
-        height={8}
-        paddingX={1}
-        overflow="hidden"
-      >
-        <Text bold underline color="gray">
-          Events
-        </Text>
-        {events.length === 0 ? (
-          <Text dimColor>Waiting for activity...</Text>
-        ) : (
-          events.slice(-6).map((e) => (
-            <Text key={e.id} wrap="truncate">
-              <Text dimColor>{time(e.timestamp)}</Text>{" "}
-              <Text>{e.text}</Text>
-            </Text>
-          ))
-        )}
-      </Box>
+       {/* SECTION: EVENT FEED - Scrollable activity log */}
+       {/* RULE: Fixed height, tail slicing for scroll, blank line padding below */}
+       {/* RULE: Naming: Human/Teller (no model tags) */}
+       <Box
+         flexDirection="column"
+         height={EVENTS_HEIGHT}
+         paddingX={1}
+         overflow="hidden"
+       >
+         <Text dimColor color="gray">
+           — events —
+         </Text>
+         {events.length === 0 ? (
+           <Text dimColor>Waiting for activity...</Text>
+         ) : (
+           events.slice(-5).map((e) => (
+             <Text key={e.id} dimColor wrap="truncate">
+               {time(e.timestamp)} {e.text}
+             </Text>
+           ))
+         )}
+       </Box>
 
       {/* Divider: Blank line for visual separation */}
       <Box>
