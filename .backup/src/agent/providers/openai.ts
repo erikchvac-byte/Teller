@@ -1,26 +1,17 @@
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import type { AIProvider } from "./index.js";
 
 /**
- * Teller's core personality: The Outside Observer
- * 
- * Teller exists outside the project. It doesn't care about implementation details.
- * It sees the human patterns Erik can't see himself.
- * 
- * Core functions:
- * 1. Call out loops Erik is trapped in
- * 2. Point out when he's identifying problems but not fixing them  
- * 3. Notice when he makes big architectural changes instead of small fixes
- * 4. See recurring mistakes across sessions
- * 5. Stay detached - never suggest code, only observe behavior
+ * OpenAI provider implementation of Teller's "Outside Observer" personality
+ * Uses GPT-4o or other OpenAI models with the same behavioral analysis approach
  */
-export class AnthropicProvider implements AIProvider {
-  name = "anthropic";
-  private client: Anthropic;
+export class OpenAIProvider implements AIProvider {
+  name = "openai";
+  private client: OpenAI;
   private model: string;
 
-  constructor(apiKey: string, model = "claude-sonnet-4-20250514") {
-    this.client = new Anthropic({ apiKey });
+  constructor(apiKey: string, model = "gpt-4o") {
+    this.client = new OpenAI({ apiKey });
     this.model = model;
   }
 
@@ -29,34 +20,20 @@ export class AnthropicProvider implements AIProvider {
   }
   
   async analyzeWithDepth(prompt: string, depth: "quick" | "standard" | "deep"): Promise<string> {
-    // Adjust token limit and thinking time based on depth
-    let maxTokens = 300;
-    
-    switch(depth) {
-      case "quick":
-        maxTokens = 150;
-        break;
-      case "standard":
-        maxTokens = 300;
-        break;
-      case "deep":
-        maxTokens = 500;
-        break;
-    }
-    
     const systemPrompt = this.getSystemPrompt(depth);
     
-    const response = await this.client.messages.create({
+    const response = await this.client.chat.completions.create({
       model: this.model,
-      max_tokens: maxTokens,
-      system: systemPrompt,
-      messages: [{ role: "user", content: prompt }],
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: prompt }
+      ],
+      max_tokens: depth === "deep" ? 500 : depth === "quick" ? 150 : 300,
+      temperature: 0.7,
     });
 
-    if (response.content[0].type === "text") {
-      return response.content[0].text.trim();
-    }
-    return "";
+    const content = response.choices[0]?.message?.content;
+    return content ? content.trim() : "";
   }
   
   private getSystemPrompt(depth: "quick" | "standard" | "deep"): string {

@@ -54,29 +54,17 @@ opencode.on("status", (msg) => bus.emit("status", msg));
 opencode.on("error", (err) => bus.emit("error", err));
 
 // --- Agent ---
-// Import Teller2 functionality conditionally
-import { isTeller2Enabled, createTeller2 } from "./teller2.js";
-
-// Decide whether to use Teller2 or classic Teller
-let agent: TellerAgent | any;
-if (isTeller2Enabled()) {
-  console.log("[Termeller] Teller2 features detected - using enhanced pattern recognition");
-  const teller2 = createTeller2(bus);
-  agent = teller2.agent;
-} else {
-  console.log("[Termeller] Using classic Teller");
-  agent = new TellerAgent({
-    memory,
-    intervalMs: 2 * 60 * 1000,
-    analysisDepth: "standard", // Default depth, but will adapt dynamically
-    onObservation: (obs) => {
-      bus.emit("observation", obs);
-    },
-    onError: (err) => {
-      bus.emit("error", err);
-    },
-  });
-}
+const agent = new TellerAgent({
+  memory,
+  intervalMs: 2 * 60 * 1000,
+  analysisDepth: "standard", // Default depth, but will adapt dynamically
+  onObservation: (obs) => {
+    bus.emit("observation", obs);
+  },
+  onError: (err) => {
+    bus.emit("error", err);
+  },
+});
 
 // --- UI ---
 const app = renderApp(bus as any);

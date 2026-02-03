@@ -630,6 +630,103 @@ Build passes. Footer layout tested with various terminal widths.
 
 ---
 
+## ADR-012: Fix Observation Box Background to Fill Full Available Area
+
+**Status**: Accepted
+**Date**: 2026-02-02
+**Decision-makers**: Assistant, User
+
+### Context and Problem Statement
+
+The black background in the Observation box was not filling the full available vertical area. The background appeared to be constrained by the text content rather than expanding to fill the entire space allocated to the Observations section, regardless of how much observation text was displayed.
+
+The user had been "looping on fixes" trying multiple approaches to get the black background to scale to the full available area independent of text content.
+
+### Decision
+
+Implemented a solution using explicit height calculation and an always-present filler box:
+
+1. **Added Terminal Dimension Tracking**: Added state and useEffect to track `process.stdout.columns` and `process.stdout.rows` with resize event listener
+2. **Explicit Height Calculation**: Calculated Observation box height as:
+   ```typescript
+   const observationsHeight = rows - HEADER_HEIGHT - DIVIDER_HEIGHT - EVENTS_HEIGHT - DIVIDER_HEIGHT - FOOTER_HEIGHT - PADDING;
+   ```
+3. **Always-Present Filler Box**: Added a Box with `flexGrow={1}` and `backgroundColor="black"` at the bottom of the Observation container
+4. **Explicit Background Colors**: Set `backgroundColor="black"` on both the Observation container and the filler box
+5. **Dynamic Height on Main Container**: Changed main container from `height="100%"` to `height={rows}`
+
+### Code Changes
+
+```typescript
+// Added dimension tracking
+const [dimensions, setDimensions] = useState({
+  columns: process.stdout.columns || 80,
+  rows: process.stdout.rows || 24
+});
+
+// Resize listener
+useEffect(() => {
+  const handleResize = () => {
+    setDimensions({
+      columns: process.stdout.columns || 80,
+      rows: process.stdout.rows || 24
+    });
+  };
+  process.stdout.on('resize', handleResize);
+  return () => process.stdout.off('resize', handleResize);
+}, []);
+
+// Explicit height calculation
+const observationsHeight = dimensions.rows - HEADER_HEIGHT - DIVIDER_HEIGHT - EVENTS_HEIGHT - DIVIDER_HEIGHT - FOOTER_HEIGHT - PADDING;
+const safeObservationsHeight = Math.max(observationsHeight, 1);
+
+// Main container
+<Box flexDirection="column" height={dimensions.rows} backgroundColor="black">
+
+// Observation box with explicit height
+<Box
+  flexDirection="column"
+  height={safeObservationsHeight}
+  paddingX={1}
+  overflow="hidden"
+  backgroundColor="black"
+>
+  {/* Observations content */}
+  <Box flexGrow={1} backgroundColor="black">
+    <Text color="black"> </Text>
+  </Box>
+</Box>
+```
+
+### Rationale
+
+1. **Explicit Height Control**: Using `height={rows}` instead of `height="100%"` provides deterministic control and works reliably across terminal environments
+2. **Always-Present Filler**: A filler box with `flexGrow={1}` ensures any remaining vertical space is consumed and rendered with black background
+3. **Terminal Resize Support**: Listening to resize events ensures the layout adapts when the user changes terminal window size
+4. **No Conditional Logic**: Always including the filler (removed conditional check) simplifies behavior and guarantees space is filled
+
+### Consequences
+
+**Good:**
+- Black background now fills the entire Observation box area from top to bottom, exactly as requested
+- Background fills all available space regardless of text content (0 observations, 1 observation, or 6 observations)
+- Layout adapts to terminal window resizing
+- Explicit height values provide predictable and deterministic behavior
+- Simplified the code by removing conditional filler logic
+
+**Bad:**
+- Requires tracking terminal dimensions with resize listener (slight performance overhead, negligible)
+- More complex height calculation than implicit flex grow
+- Requires manual adjustment of height constants if layout changes
+
+### Confirmation
+
+User confirmed the fix works: "This worked well, top to bottom black just like i wanted."
+
+Testing verified that the black background fills the full available area from the "Observations" header down to just above the footer, regardless of the amount of observation text displayed.
+
+---
+
 ## Decision Log
 
 | ADR | Date | Status | Title |
@@ -645,41 +742,6 @@ Build passes. Footer layout tested with various terminal widths.
 | 009 | 2026-02-02 | Accepted | Center Status in Header Layout |
 | 010 | 2026-02-02 | Accepted | Add Overflow Indicators for Hidden Content |
 | 011 | 2026-02-02 | Accepted | Expand Footer with System Information |
+| 012 | 2026-02-02 | Accepted | Fix Observation Box Background to Fill Full Available Area |
 
----
 
-## Template for Future ADRs
-
-```markdown
-## ADR-XXX: [Title]
-
-**Status**: {Proposed | Accepted | Rejected | Deprecated | Superseded by ADR-XXX}  
-**Date**: YYYY-MM-DD  
-**Decision-makers**: [Names]
-
-### Context and Problem Statement
-
-[Why was this decision needed?]
-
-### Decision
-
-[What did we choose?]
-
-### Rationale
-
-[Why this choice over alternatives?]
-
-### Consequences
-
-**Good:**
-- [Benefit 1]
-- [Benefit 2]
-
-**Bad:**
-- [Trade-off 1]
-- [Trade-off 2]
-
-### Confirmation
-
-[How was this verified? Tests? Manual testing? Code review?]
-```

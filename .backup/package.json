@@ -24,14 +24,12 @@
   "license": "ISC",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.72.1",
+    "openai": "^4.77.0",
     "better-sqlite3": "^12.6.2",
     "chokidar": "^5.0.0",
     "dotenv": "^17.2.3",
     "ink": "^6.6.0",
-    "openai": "^4.77.0",
-    "react": "^19.2.4",
-    "vectra": "^0.4.4",
-    "yaml": "^2.8.2"
+    "react": "^19.2.4"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
