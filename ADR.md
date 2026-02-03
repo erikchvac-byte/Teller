@@ -39,3 +39,87 @@
 - /src/agent/vector-memory.ts
 - /src/teller2.ts
 - .opencode/skills/ directory structure
+
+### ADR-004: Work Monitor Investigation and Implementation
+**Status**: In Progress
+**Date**: 2026-02-02
+**Context**: Teller was only seeing conversations (Human/Teller dialogue) and not actual coding work. User reported: "Teller is running but not seeing some of the work. Maybe just seeing the conversations without seeing anything representing what is accomplished."
+
+**Investigation Findings**:
+1. **Capture Sources Working**:
+   - terminal-hook.ts ✅ CAN read PowerShell history correctly (tested: `C:\Users\erikc\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt` exists and is readable)
+   - opencode-watcher.ts ✅ Correctly captures OpenCode conversations from `~/.local/share/opencode/storage/`
+
+2. **Root Cause Identified**:
+   - Teller runs in the same terminal as the conversation
+   - Therefore it only captures dialogue between Human and Teller
+   - It does NOT capture:
+     - ❌ File edits/creations/deletions
+     - ❌ Git commits, branches, status changes
+     - ❌ Build output (npm, webpack, etc.)
+     - ❌ Terminal commands from work sessions (only sees conversation commands)
+
+3. **Missing Capture Mechanisms**:
+   - No file system watching for code changes
+   - No git activity monitoring
+   - No build output monitoring
+   - No separation between "conversation terminal" and "work terminal"
+
+**Decision**: Created work-monitor.ts to capture actual coding work from multiple sources:
+- File system changes (via chokidar)
+- Git repository activity (status changes, commits)
+- Terminal commands (integrated with terminal-hook.ts)
+- Build system output (watching package.json, Makefile, etc.)
+
+**Implementation Status**: ⚠️ INCOMPLETE - TypeScript compilation errors in work-monitor.ts
+
+**Key Technical Details**:
+- WorkMonitor uses chokidar for file watching
+- Monitors project directory with depth: 3
+- Ignores: node_modules, .git, dist, build, *.log, etc.
+- Checks git status via `git status --porcelain`
+- Watches build files: package.json, Makefile, Cargo.toml, etc.
+- Integrates with existing terminal-hook.ts for command capture
+
+**Critical Issues**:
+1. **Syntax Errors**: work-monitor.ts has TypeScript compilation errors
+2. **Architecture Gap**: Teller needs to run in separate terminal from conversation
+3. **User Behavior**: User is using OpenCode CLI which generates conversation logs - Teller should monitor SEPARATE work terminal
+
+**Rationale**: Work monitor provides comprehensive capture of actual coding activity, not just meta-activity (talking about work). This enables Teller to provide meaningful insights about coding patterns, productivity, and work habits.
+
+**Consequences**:
+- **Benefits**: Would capture actual coding work patterns
+- **Drawbacks**: Increased complexity, requires user to maintain separate work terminal
+- **Trade-offs**: Better insights vs more complex setup
+
+**Testing Results**:
+- ✅ terminal-hook.ts successfully reads PowerShell history
+- ✅ opencode-watcher.ts successfully captures OpenCode conversations
+- ❌ work-monitor.ts has TypeScript compilation errors
+- ❌ File system watching not tested yet (blocked by compilation errors)
+
+**Known Issues**:
+- work-monitor.ts has TypeScript syntax errors
+- Teller still runs in same terminal as conversation (architectural issue)
+- No git activity monitoring implemented yet
+- No build output monitoring implemented yet
+
+**Open Questions**:
+- How to convince user to run Teller in separate terminal from work?
+- Should we add file system watching directly to enhanced-teller.ts?
+- Which file changes should be captured vs ignored?
+- How to handle multiple projects/repos?
+
+**Future Considerations**:
+- Fix TypeScript compilation errors in work-monitor.ts
+- Integrate work-monitor with enhanced-teller.ts
+- Test file system watching for actual work capture
+- Consider adding git hook integration for real-time commit tracking
+- Potentially add separate CLI mode for work monitoring vs conversation monitoring
+
+**References**:
+- /src/capture/work-monitor.ts (INCOMPLETE - has errors)
+- /src/capture/terminal-hook.ts (WORKING)
+- /src/capture/opencode-watcher.ts (WORKING)
+- /src/agent/enhanced-teller.ts (needs work-monitor integration)
