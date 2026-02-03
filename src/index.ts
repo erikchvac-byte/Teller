@@ -1,14 +1,16 @@
 import "dotenv/config";
 import { EventEmitter } from "node:events";
 import { execSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
 import { TerminalHook } from "./capture/terminal-hook.js";
 import { OpencodeWatcher } from "./capture/opencode-watcher.js";
 import { Memory } from "./agent/memory.js";
 import { TellerAgent } from "./agent/teller.js";
 import { renderApp } from "./ui/window.js";
 
-// Clear terminal to ensure Teller starts at top of window
-console.clear();
+// Don't clear terminal - we want to see debug output
+// console.clear();
 
 /**
  * Central event bus that bridges capture sources, the agent, and the UI.
@@ -52,6 +54,105 @@ opencode.on("event", (e) => {
 
 opencode.on("status", (msg) => bus.emit("status", msg));
 opencode.on("error", (err) => bus.emit("error", err));
+
+// --- Capture: Git-Based Diff Capture for Actual Work ---
+const projectDir = process.cwd();
+const GIT_DIFF_INTERVAL = 5000; // Check every 5 seconds
+let lastGitHead = "";
+
+// Get current git HEAD commit hash
+function getGitHead(): string {
+  try {
+    return execSync("git rev-parse HEAD", { 
+      encoding: "utf8", 
+      timeout: 3000,
+      cwd: projectDir
+    }).trim();
+  } catch {
+    return "";
+  }
+}
+
+// Capture git diff showing actual code changes
+function captureGitDiff() {
+  try {
+    const currentHead = getGitHead();
+    
+    // If HEAD changed, capture what was committed
+    if (currentHead && currentHead !== lastGitHead) {
+      const diffOutput = execSync(`git show ${currentHead}`, { 
+        encoding: "utf8", 
+        timeout: 10000,
+        cwd: projectDir
+      }).trim();
+      
+      // Truncate diff to reasonable size (first 2000 chars)
+      const diffSummary = diffOutput.slice(0, 2000);
+      
+      process.stderr.write(`[GitDiff] New commit detected: ${currentHead.slice(0, 7)}\n`);
+      process.stderr.write(`[GitDiff] Diff: ${diffSummary.replace(/\n/g, " ").slice(0, 150)}...\n`);
+      
+      memory.addEvent({
+        type: "git_diff",
+        source: "git",
+        content: `commit ${currentHead.slice(0, 7)}: ${diffSummary}`,
+        timestamp: Date.now(),
+      });
+      
+      bus.emit("event", {
+        type: "git_diff",
+        source: "git",
+        command: `commit ${currentHead.slice(0, 7)}: ${diffSummary}`,
+        timestamp: Date.now(),
+      });
+      
+      lastGitHead = currentHead;
+    }
+    
+    // Also capture uncommitted changes
+    const unstagedDiff = execSync("git diff --unified=1", { 
+      encoding: "utf8", 
+      timeout: 5000,
+      cwd: projectDir
+    }).trim();
+    
+    if (unstagedDiff) {
+      const diffSummary = unstagedDiff.slice(0, 2000);
+      
+      process.stderr.write(`[GitDiff] Unstaged changes detected\n`);
+      process.stderr.write(`[GitDiff] Diff: ${diffSummary.replace(/\n/g, " ").slice(0, 150)}...\n`);
+      
+      memory.addEvent({
+        type: "git_diff",
+        source: "git",
+        content: `unstaged: ${diffSummary}`,
+        timestamp: Date.now(),
+      });
+      
+      bus.emit("event", {
+        type: "git_diff",
+        source: "git",
+        command: `unstaged: ${diffSummary}`,
+        timestamp: Date.now(),
+      });
+    }
+    
+  } catch (err) {
+    // Git commands might fail, just log and continue
+    if (!lastGitHead) {
+      // Only log the first error to avoid spam
+      process.stderr.write(`[GitDiff] Error: ${err instanceof Error ? err.message : String(err)}\n`);
+    }
+  }
+}
+
+// Initial git HEAD
+lastGitHead = getGitHead();
+
+// Poll for git changes
+setInterval(captureGitDiff, GIT_DIFF_INTERVAL);
+
+bus.emit("status", "Using git diff capture for actual code changes...");
 
 // --- Agent ---
 // Import Teller2 functionality conditionally

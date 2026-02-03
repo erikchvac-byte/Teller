@@ -6,7 +6,7 @@ import type { OpencodeEvent } from "../capture/opencode-watcher.js";
 import { ColoredText } from "../utils/colorize.js";
 import type { ColorMode } from "../utils/colorize.js";
 
-type AnyEvent = TerminalEvent | OpencodeEvent;
+type AnyEvent = TerminalEvent | OpencodeEvent | { type: "git_diff", source: "git", command: string, timestamp: number };
 
 interface AppProps {
   eventEmitter: {
@@ -72,6 +72,16 @@ function App({ eventEmitter }: AppProps) {
 
       if (e.source === "terminal") {
         text = `$ ${(e as TerminalEvent).command}`;
+      } else if (e.source === "git") {
+        // Format git diff events to show key changes
+        const gitCommand = (e as { command: string }).command;
+        if (gitCommand.startsWith("commit")) {
+          // Extract commit hash and first line of diff
+          const lines = gitCommand.split('\n');
+          text = `🔧 ${lines[0].slice(0, 40)}...`;
+        } else {
+          text = `🔧 ${gitCommand.slice(0, 60)}`;
+        }
       } else {
         const oc = e as OpencodeEvent;
         // RULE: Naming convention - Human/Teller (no model/provider tags)
