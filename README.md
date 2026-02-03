@@ -23,6 +23,7 @@ Teller watches your terminal and opencode conversations, providing behavioral in
    ```
 
 (Development mode: `npm run dev` - for debugging only)
+(Silent mode: `npm run silent` - runs without verbose output)
 
 ## How It Works
 
