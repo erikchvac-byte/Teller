@@ -221,21 +221,34 @@ export class EnhancedTellerAgent {
   ): string {
     const parts: string[] = [];
 
-    // Recent events batch
     parts.push("## Recent Activity (last batch)\n");
     for (const e of events) {
       const time = new Date(e.timestamp).toLocaleTimeString();
       if (e.source === "terminal") {
         parts.push(`[${time}] $ ${e.content}`);
       } else if (e.source === "git") {
-        // Git events show actual code changes - this is the REAL work evidence
         parts.push(`[${time}] [GIT ${e.type}]\n${e.content.slice(0, 1000)}`);
       } else {
         parts.push(`[${time}] [opencode/${e.type}] ${e.content.slice(0, 500)}`);
       }
     }
 
-    // Session observations so far
+    parts.push("\n## Development Progression (Git Commit Analysis)\n");
+    const gitEvents = events.filter(e => e.source === "git");
+    if (gitEvents.length > 0) {
+      const completedWork = gitEvents.filter(e => e.type === "git_commit");
+      if (completedWork.length > 0) {
+        parts.push(`Completed Work (${completedWork.length} commits):`);
+        for (const e of completedWork.slice(-5)) {
+          const time = new Date(e.timestamp).toLocaleTimeString();
+          const fileChanges = this.extractFileChanges(e.content);
+          parts.push(`  [${time}] ${fileChanges}`);
+        }
+      }
+    } else {
+      parts.push("(No git activity detected in this batch)");
+    }
+
     if (sessionObservations.length > 0) {
       parts.push("\n## Your earlier observations this session\n");
       for (const o of sessionObservations.slice(-5)) {
@@ -243,7 +256,6 @@ export class EnhancedTellerAgent {
       }
     }
 
-    // Cross-session memory
     if (pastObservations.length > 0) {
       parts.push("\n## Observations from past sessions\n");
       for (const o of pastObservations.slice(0, 5)) {
@@ -252,7 +264,6 @@ export class EnhancedTellerAgent {
       }
     }
     
-    // NEW: Add pattern analysis if available
     if (patterns.loops && patterns.loops.length > 0) {
       parts.push("\n## Detected Command Loops\n");
       for (const loop of patterns.loops) {
@@ -265,7 +276,6 @@ export class EnhancedTellerAgent {
       parts.push(patterns.intentDrift);
     }
     
-    // NEW: Add similar past observations
     if (similarPastObservations.length > 0) {
       parts.push("\n## Similar Past Patterns\n");
       for (const o of similarPastObservations) {
@@ -275,9 +285,24 @@ export class EnhancedTellerAgent {
     }
 
     parts.push(
-      "\n## Instructions\nBased on the recent activity and pattern analysis, provide a brief observation about coding patterns and behavior. If nothing notable, respond with an empty string.",
+      "\n## Instructions\nBased on the recent activity and pattern analysis, provide observations about coding patterns and behavior. Include confidence levels, evidence references, and potential risks. If nothing notable, respond with an empty string.",
     );
 
     return parts.join("\n");
+  }
+
+  private extractFileChanges(gitContent: string): string {
+    const changes: string[] = [];
+    const lines = gitContent.split("\n");
+    for (const line of lines) {
+      if (line.startsWith("diff --git")) {
+        const match = line.match(/diff --git a\/(\S+)/);
+        if (match) {
+          changes.push(match[1]);
+        }
+      }
+      if (changes.length >= 3) break;
+    }
+    return changes.length > 0 ? changes.join(", ") : "(file details not available)";
   }
 }

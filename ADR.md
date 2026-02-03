@@ -40,6 +40,59 @@
 - /src/teller2.ts
 - .opencode/skills/ directory structure
 
+### ADR-005: Teller Observation System Overhaul
+**Status**: Accepted
+**Date**: 2026-02-03
+**Context**: Teller was generating repetitive and inaccurate observations, claiming the user was repeatedly working on banner UI design when that work was already complete. The system was misinterpreting git diffs as active design iteration and treating workspace switches as evidence of restarting completed tasks.
+
+**Problems Identified**:
+1. System prompt encouraged repetitive narrative loops ("AGAIN", "LOOP:" prefixes)
+2. Over-interpretation of UI iteration work as looping behavior
+3. No temporal verification of work completion status
+4. Missing confidence levels and evidence references in output
+5. Ignoring development progression signals from git commits
+
+**Decision**: Rewrote Teller's observation generation system with:
+
+1. **New System Prompt**:
+   - Removed "AGAIN" and "LOOP:" narrative encouragement
+   - Added explicit prohibition on repetitive commentary
+   - Mandated confidence levels [HIGH/MEDIUM/LOW]
+   - Required evidence references (file paths, timestamps, git commits)
+   - Added potential risk identification
+   - Added next investigative angles for uncertain patterns
+
+2. **Enhanced Prompt Context**:
+   - Added "Development Progression (Git Commit Analysis)" section
+   - Shows completed work by tracking git_commit events
+   - Extracts file changes from git diffs for clarity
+   - Helps distinguish between historical and active changes
+
+3. **New Output Format**:
+   - `{Pattern Summary} | Confidence: [HIGH/MEDIUM/LOW] | Evidence: {references} | Risk: {optional} | Next: {optional if applicable}`
+
+**Rationale**: The new system ensures observations are evidence-backed, properly contextualized, and avoid false claims about work status. By explicitly showing completed work in the prompt context, the AI can distinguish between ongoing iteration and historical changes.
+
+**Consequences**:
+- **Benefits**: Accurate observations, reduced false loop claims, proper confidence attribution
+- **Drawbacks**: More verbose output format, increased token usage
+- **Trade-offs**: More informative observations vs slightly higher cost
+
+**Testing**: Successfully compiled with TypeScript. New prompt structure verified to include all required elements.
+
+**Prohibited Behaviors Enforced**:
+- Repetitive narrative loop commentary ("You're AGAIN...")
+- Over-interpretation of UI iteration work as looping
+- Treating agent consultation as inherently wasteful without temporal verification
+- Ignoring development progression signals
+- Claiming loops when git evidence shows completed work
+- Interpreting git diffs as active iteration when they're historical
+
+**References**:
+- /src/agent/providers/anthropic.ts (system prompt and analyzeWithDepth method)
+- /src/agent/teller.ts (buildPrompt method with development progression)
+- /src/agent/enhanced-teller.ts (buildPrompt with pattern analysis integration)
+
 ### ADR-004: Work Monitor Investigation and Implementation
 **Status**: In Progress
 **Date**: 2026-02-02
