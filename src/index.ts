@@ -57,7 +57,7 @@ opencode.on("error", (err) => bus.emit("error", err));
 
 // --- Capture: Git-Based Diff Capture for Actual Work ---
 const projectDir = process.cwd();
-const GIT_DIFF_INTERVAL = 5000; // Check every 5 seconds
+const GIT_DIFF_INTERVAL = 3000; // Check every 3 seconds (faster for better capture)
 let lastGitHead = "";
 
 // Get current git HEAD commit hash
@@ -76,35 +76,55 @@ function getGitHead(): string {
 // Capture git diff showing actual code changes
 function captureGitDiff() {
   try {
-    const currentHead = getGitHead();
+    process.stderr.write(`[GitDiff] Running diff check...\n`);
     
-    // If HEAD changed, capture what was committed
+    const currentHead = getGitHead();
+    process.stderr.write(`[GitDiff] Current HEAD: ${currentHead.slice(0, 7)}, Last: ${lastGitHead.slice(0, 7)}\n`);
+    
+    // Check for new commits by comparing HEAD
     if (currentHead && currentHead !== lastGitHead) {
-      const diffOutput = execSync(`git show ${currentHead}`, { 
+      // Get all commits since last check
+      const commits = execSync(`git log ${lastGitHead}..HEAD --oneline`, { 
         encoding: "utf8", 
-        timeout: 10000,
+        timeout: 5000,
         cwd: projectDir
       }).trim();
       
-      // Truncate diff to reasonable size (first 2000 chars)
-      const diffSummary = diffOutput.slice(0, 2000);
-      
-      process.stderr.write(`[GitDiff] New commit detected: ${currentHead.slice(0, 7)}\n`);
-      process.stderr.write(`[GitDiff] Diff: ${diffSummary.replace(/\n/g, " ").slice(0, 150)}...\n`);
-      
-      memory.addEvent({
-        type: "git_diff",
-        source: "git",
-        content: `commit ${currentHead.slice(0, 7)}: ${diffSummary}`,
-        timestamp: Date.now(),
-      });
-      
-      bus.emit("event", {
-        type: "git_diff",
-        source: "git",
-        command: `commit ${currentHead.slice(0, 7)}: ${diffSummary}`,
-        timestamp: Date.now(),
-      });
+      if (commits) {
+        process.stderr.write(`[GitDiff] New commits detected:\n${commits}\n`);
+        
+        // Get diff for each new commit
+        const commitLines = commits.split('\n');
+        for (const commit of commitLines) {
+          const commitHash = commit.split(' ')[0];
+          if (commitHash) {
+            const diffOutput = execSync(`git show ${commitHash}`, { 
+              encoding: "utf8", 
+              timeout: 10000,
+              cwd: projectDir
+            }).trim();
+            
+            // Truncate diff to reasonable size (first 2000 chars)
+            const diffSummary = diffOutput.slice(0, 2000);
+            
+            process.stderr.write(`[GitDiff] Commit ${commitHash.slice(0, 7)}: ${diffSummary.replace(/\n/g, " ").slice(0, 150)}...\n`);
+            
+            memory.addEvent({
+              type: "git_diff",
+              source: "git",
+              content: `commit ${commitHash.slice(0, 7)}: ${diffSummary}`,
+              timestamp: Date.now(),
+            });
+            
+            bus.emit("event", {
+              type: "git_diff",
+              source: "git",
+              command: `commit ${commitHash.slice(0, 7)}: ${diffSummary}`,
+              timestamp: Date.now(),
+            });
+          }
+        }
+      }
       
       lastGitHead = currentHead;
     }
@@ -137,17 +157,25 @@ function captureGitDiff() {
       });
     }
     
+    process.stderr.write(`[GitDiff] Diff check complete\n`);
+    
   } catch (err) {
     // Git commands might fail, just log and continue
     if (!lastGitHead) {
-      // Only log the first error to avoid spam
+      // Only log first error to avoid spam
       process.stderr.write(`[GitDiff] Error: ${err instanceof Error ? err.message : String(err)}\n`);
+    } else {
+      process.stderr.write(`[GitDiff] Error in polling: ${err instanceof Error ? err.message.slice(0, 100) : String(err).slice(0, 100)}\n`);
     }
   }
 }
 
 // Initial git HEAD
 lastGitHead = getGitHead();
+
+// Initial diff capture
+process.stderr.write("[GitDiff] Starting git diff capture...\n");
+captureGitDiff();
 
 // Poll for git changes
 setInterval(captureGitDiff, GIT_DIFF_INTERVAL);
