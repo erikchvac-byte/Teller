@@ -92,9 +92,10 @@
 - /src/agent/providers/anthropic.ts (system prompt and analyzeWithDepth method)
 - /src/agent/teller.ts (buildPrompt method with development progression)
 - /src/agent/enhanced-teller.ts (buildPrompt with pattern analysis integration)
+- /src/ui/window.tsx (scroll functionality and UI improvements)
 
 ### ADR-004: Work Monitor Investigation and Implementation
-**Status**: In Progress
+**Status**: Completed
 **Date**: 2026-02-02
 **Context**: Teller was only seeing conversations (Human/Teller dialogue) and not actual coding work. User reported: "Teller is running but not seeing some of the work. Maybe just seeing the conversations without seeing anything representing what is accomplished."
 
@@ -124,7 +125,7 @@
 - Terminal commands (integrated with terminal-hook.ts)
 - Build system output (watching package.json, Makefile, etc.)
 
-**Implementation Status**: ⚠️ INCOMPLETE - TypeScript compilation errors in work-monitor.ts
+**Implementation Status**: ✅ COMPLETED - Successfully integrated into index.ts
 
 **Key Technical Details**:
 - WorkMonitor uses chokidar for file watching
@@ -134,10 +135,12 @@
 - Watches build files: package.json, Makefile, Cargo.toml, etc.
 - Integrates with existing terminal-hook.ts for command capture
 
-**Critical Issues**:
-1. **Syntax Errors**: work-monitor.ts has TypeScript compilation errors
-2. **Architecture Gap**: Teller needs to run in separate terminal from conversation
-3. **User Behavior**: User is using OpenCode CLI which generates conversation logs - Teller should monitor SEPARATE work terminal
+**Implementation Details**:
+- Git diff capture integrated directly into index.ts (lines 58-206)
+- Captures both git commits and unstaged changes every 3 seconds
+- Uses simple hash deduplication to avoid duplicate diff events
+- Validates git refs to prevent command injection
+- mutex protection to prevent race conditions
 
 **Rationale**: Work monitor provides comprehensive capture of actual coding activity, not just meta-activity (talking about work). This enables Teller to provide meaningful insights about coding patterns, productivity, and work habits.
 
@@ -149,30 +152,27 @@
 **Testing Results**:
 - ✅ terminal-hook.ts successfully reads PowerShell history
 - ✅ opencode-watcher.ts successfully captures OpenCode conversations
-- ❌ work-monitor.ts has TypeScript compilation errors
-- ❌ File system watching not tested yet (blocked by compilation errors)
+- ✅ Git diff capture working (integrated into main index.ts)
+- ✅ All capture sources providing events to memory and agent
 
 **Known Issues**:
-- work-monitor.ts has TypeScript syntax errors
-- Teller still runs in same terminal as conversation (architectural issue)
-- No git activity monitoring implemented yet
+- Teller must run in separate terminal to capture actual work commands
+- File system watching not implemented (beyond git diffs)
 - No build output monitoring implemented yet
 
 **Open Questions**:
-- How to convince user to run Teller in separate terminal from work?
-- Should we add file system watching directly to enhanced-teller.ts?
-- Which file changes should be captured vs ignored?
-- How to handle multiple projects/repos?
+- Should we add file system watching for non-git changes?
+- How to handle multiple projects/repos monitoring?
+- Should we capture build output and test results?
 
 **Future Considerations**:
-- Fix TypeScript compilation errors in work-monitor.ts
-- Integrate work-monitor with enhanced-teller.ts
-- Test file system watching for actual work capture
-- Consider adding git hook integration for real-time commit tracking
-- Potentially add separate CLI mode for work monitoring vs conversation monitoring
+- Add file system watching for non-git file changes
+- Consider git hook integration for real-time commit tracking
+- Potentially add build output monitoring (npm run, cargo build, etc.)
+- Add session export/import capabilities for pattern analysis
 
 **References**:
-- /src/capture/work-monitor.ts (INCOMPLETE - has errors)
+- /src/index.ts (git diff capture implementation, lines 58-206)
 - /src/capture/terminal-hook.ts (WORKING)
 - /src/capture/opencode-watcher.ts (WORKING)
-- /src/agent/enhanced-teller.ts (needs work-monitor integration)
+- /src/agent/teller.ts (receives git events)
