@@ -375,7 +375,7 @@ export function ColoredText({ text, mode = "keywords" }: ColoredTextProps): Reac
 }
 
 interface ObservationSection {
-  type: "main" | "confidence" | "evidence" | "risk" | "next";
+  type: "main" | "confidence" | "evidence" | "risk" | "next" | "status" | "summary" | "action" | "rootcause" | "resolved" | "pattern";
   text: string;
 }
 
@@ -384,7 +384,59 @@ const SECTION_COLORS: Record<string, ColorKey> = {
   evidence: "cyan",
   risk: "red",
   next: "green",
+  status: "magenta",
+  summary: "cyan",
+  action: "green",
+  rootcause: "red",
+  resolved: "green",
+  pattern: "cyan",
 };
+
+/**
+ * Markers that should always start on a new line
+ */
+const NEWLINE_MARKERS = [
+  // Bracket format markers
+  /\[CONFIDENCE\]/gi,
+  /\[EVIDENCE\]/gi,
+  /\[RISK\]/gi,
+  /\[NEXT\]/gi,
+  // Bold markers with colons
+  /\*\*Status:\*\*/gi,
+  /\*\*Summary:\*\*/gi,
+  /\*\*Action:\*\*/gi,
+  /\*\*Root Cause:\*\*/gi,
+  /\*\*Key Evidence:\*\*/gi,
+  /\*\*Pattern Summary:\*\*/gi,
+  /\*\*Confidence Level:\*\*/gi,
+  /\*\*Evidence References:\*\*/gi,
+  /\*\*Potential Risks:\*\*/gi,
+  /\*\*Next Investigative Angles:\*\*/gi,
+  // Milestone markers (no colon)
+  /\*\*RESOLVED\*\*/gi,
+];
+
+/**
+ * Pre-process text to ensure markers start on new lines
+ */
+function normalizeMarkerNewlines(text: string): string {
+  let result = text;
+  for (const marker of NEWLINE_MARKERS) {
+    // Insert newline before marker if not already at start of line
+    result = result.replace(marker, (match, offset) => {
+      // Check if already at start of line (or start of string)
+      const before = result.slice(0, offset);
+      const lastNewline = before.lastIndexOf('\n');
+      const textSinceNewline = before.slice(lastNewline + 1).trim();
+      
+      if (textSinceNewline.length === 0) {
+        return match; // Already at start of line
+      }
+      return '\n' + match;
+    });
+  }
+  return result;
+}
 
 /**
  * Parse observation text into sections with type and content
@@ -392,8 +444,11 @@ const SECTION_COLORS: Record<string, ColorKey> = {
 function parseObservationSections(text: string): ObservationSection[] {
   const sections: ObservationSection[] = [];
   
+  // Normalize text so markers start on new lines
+  const normalizedText = normalizeMarkerNewlines(text);
+  
   // First try | separator format
-  const pipeParts = text.split('|').map(p => p.trim());
+  const pipeParts = normalizedText.split('|').map(p => p.trim());
   let usedPipeFormat = false;
   
   for (const part of pipeParts) {
@@ -439,7 +494,7 @@ function parseObservationSections(text: string): ObservationSection[] {
     }
   } else {
     // Parse bracket format: [CONFIDENCE] MEDIUM, [EVIDENCE] ..., etc.
-    const lines = text.split('\n');
+    const lines = normalizedText.split('\n');
     for (const line of lines) {
       const trimmedLine = line.trim();
       
@@ -462,6 +517,63 @@ function parseObservationSections(text: string): ObservationSection[] {
         sections.push({
           type: 'next',
           text: trimmedLine.replace(/^\[NEXT\]\s*/i, '').trim()
+        });
+      // Bold markers with colons
+      } else if (/^\*\*Status:\*\*/i.test(trimmedLine)) {
+        sections.push({
+          type: 'status',
+          text: trimmedLine.replace(/^\*\*Status:\*\*\s*/i, '').trim()
+        });
+      } else if (/^\*\*Summary:\*\*/i.test(trimmedLine)) {
+        sections.push({
+          type: 'summary',
+          text: trimmedLine.replace(/^\*\*Summary:\*\*\s*/i, '').trim()
+        });
+      } else if (/^\*\*Action:\*\*/i.test(trimmedLine)) {
+        sections.push({
+          type: 'action',
+          text: trimmedLine.replace(/^\*\*Action:\*\*\s*/i, '').trim()
+        });
+      } else if (/^\*\*Root Cause:\*\*/i.test(trimmedLine)) {
+        sections.push({
+          type: 'rootcause',
+          text: trimmedLine.replace(/^\*\*Root Cause:\*\*\s*/i, '').trim()
+        });
+      } else if (/^\*\*Key Evidence:\*\*/i.test(trimmedLine)) {
+        sections.push({
+          type: 'evidence',
+          text: trimmedLine.replace(/^\*\*Key Evidence:\*\*\s*/i, '').trim()
+        });
+      } else if (/^\*\*Pattern Summary:\*\*/i.test(trimmedLine)) {
+        sections.push({
+          type: 'pattern',
+          text: trimmedLine.replace(/^\*\*Pattern Summary:\*\*\s*/i, '').trim()
+        });
+      } else if (/^\*\*Confidence Level:\*\*/i.test(trimmedLine)) {
+        sections.push({
+          type: 'confidence',
+          text: trimmedLine.replace(/^\*\*Confidence Level:\*\*\s*/i, '').trim()
+        });
+      } else if (/^\*\*Evidence References:\*\*/i.test(trimmedLine)) {
+        sections.push({
+          type: 'evidence',
+          text: trimmedLine.replace(/^\*\*Evidence References:\*\*\s*/i, '').trim()
+        });
+      } else if (/^\*\*Potential Risks:\*\*/i.test(trimmedLine)) {
+        sections.push({
+          type: 'risk',
+          text: trimmedLine.replace(/^\*\*Potential Risks:\*\*\s*/i, '').trim()
+        });
+      } else if (/^\*\*Next Investigative Angles:\*\*/i.test(trimmedLine)) {
+        sections.push({
+          type: 'next',
+          text: trimmedLine.replace(/^\*\*Next Investigative Angles:\*\*\s*/i, '').trim()
+        });
+      // Milestone markers (no colon)
+      } else if (/^\*\*RESOLVED\*\*/i.test(trimmedLine)) {
+        sections.push({
+          type: 'resolved',
+          text: trimmedLine.replace(/^\*\*RESOLVED\*\*\s*/i, '').trim()
         });
       } else if (trimmedLine.length > 0) {
         sections.push({
