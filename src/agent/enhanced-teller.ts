@@ -1,6 +1,7 @@
-import { Memory, type StoredEvent, type StoredObservation } from "./memory.js";
+import { Memory, type StoredEvent, type StoredObservation, type StoredLesson } from "./memory.js";
 import type { AIProvider } from "./providers/index.js";
 import { AnthropicProvider } from "./providers/anthropic.js";
+import { LessonExtractor } from "./lesson-extractor.js";
 import * as vectra from "vectra"; // Vector embedding + similarity search
 
 // Type definition for vector-enhanced memory
@@ -30,15 +31,16 @@ export interface TellerObservation {
 export class EnhancedTellerAgent {
   private provider: AIProvider;
   private memory: Memory;
-  private vectorMemory?: VectorMemory; // Optional vector memory integration
+  private vectorMemory?: VectorMemory;
   private analysisInterval: ReturnType<typeof setInterval> | null = null;
   private lastAnalysisTime: number;
   private intervalMs: number;
   private onObservation: (obs: TellerObservation) => void;
   private onError: (err: Error) => void;
   private analysisDepth: "quick" | "standard" | "deep";
-  private patternCounter: number = 0; // Tracks number of analyses to periodically use deep analysis
-  private skillLoader: (name: string) => Promise<any>; // Function to load skills
+  private patternCounter: number = 0;
+  private skillLoader: (name: string) => Promise<any>;
+  private lessonExtractor: LessonExtractor;
 
   constructor(opts: {
     memory: Memory;
@@ -61,12 +63,13 @@ export class EnhancedTellerAgent {
     }
     this.memory = opts.memory;
     this.vectorMemory = opts.vectorMemory;
-    this.intervalMs = opts.intervalMs || 2 * 60 * 1000; // 2 minutes
-    this.lastAnalysisTime = 0; // Capture all events on first run
+    this.intervalMs = opts.intervalMs || 2 * 60 * 1000;
+    this.lastAnalysisTime = 0;
     this.analysisDepth = opts.analysisDepth || "standard";
     this.onObservation = opts.onObservation;
     this.onError = opts.onError || (() => {});
     this.skillLoader = opts.skillLoader || (async (name: string) => null);
+    this.lessonExtractor = new LessonExtractor(this.provider);
   }
 
   // The rest of the methods remain similar, with enhanced analyze()
@@ -100,6 +103,7 @@ export class EnhancedTellerAgent {
 
       const pastObservations = this.memory.getPastObservations(10);
       const sessionObservations = this.memory.getSessionObservations();
+      const globalLessons = this.memory.getLessons(5);
 
       // NEW: Apply skills for pattern pre-analysis
       const patterns = await this.applySkills(recentEvents, sessionObservations);
@@ -112,8 +116,9 @@ export class EnhancedTellerAgent {
         recentEvents,
         pastObservations,
         sessionObservations,
-        patterns, // NEW: Add pattern analysis
-        similarPastObservations // NEW: Add similar past observations
+        patterns,
+        similarPastObservations,
+        globalLessons,
       );
       
       // Dynamically determine analysis depth
@@ -150,6 +155,11 @@ export class EnhancedTellerAgent {
         if (this.vectorMemory) {
           await this.vectorMemory.addObservationWithEmbedding(text);
         }
+        
+        // Fire-and-forget: extract global lessons from this observation
+        this.lessonExtractor.extractAndStore(text, this.memory).catch(() => {
+          // Non-critical: lesson extraction failure should not affect observation flow
+        });
         
         this.onObservation(observation);
       }
@@ -217,7 +227,8 @@ export class EnhancedTellerAgent {
     pastObservations: StoredObservation[],
     sessionObservations: StoredObservation[],
     patterns: any = {},
-    similarPastObservations: StoredObservation[] = []
+    similarPastObservations: StoredObservation[] = [],
+    globalLessons: StoredLesson[] = [],
   ): string {
     const parts: string[] = [];
 
@@ -281,6 +292,16 @@ export class EnhancedTellerAgent {
       for (const o of similarPastObservations) {
         const date = new Date(o.timestamp).toLocaleDateString();
         parts.push(`- [${date}] ${o.observation}`);
+      }
+    }
+
+    // Global lessons - read-only behavioral intelligence from all workspaces
+    if (globalLessons.length > 0) {
+      parts.push("\n## Lessons learned (global)\n");
+      parts.push("These patterns were observed across your coding work:\n");
+      for (const lesson of globalLessons) {
+        const confidenceLabel = lesson.confidence > 0.8 ? "high" : lesson.confidence > 0.5 ? "medium" : "low";
+        parts.push(`- [${lesson.category}] ${lesson.content} (${confidenceLabel} confidence)`);
       }
     }
 

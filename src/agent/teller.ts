@@ -1,6 +1,7 @@
-import { Memory, type StoredEvent, type StoredObservation } from "./memory.js";
+import { Memory, type StoredEvent, type StoredObservation, type StoredLesson } from "./memory.js";
 import type { AIProvider } from "./providers/index.js";
 import { AnthropicProvider } from "./providers/anthropic.js";
+import { LessonExtractor } from "./lesson-extractor.js";
 
 export interface TellerObservation {
   text: string;
@@ -21,7 +22,8 @@ export class TellerAgent {
   private onObservation: (obs: TellerObservation) => void;
   private onError: (err: Error) => void;
   private analysisDepth: "quick" | "standard" | "deep";
-  private patternCounter: number = 0; // Tracks number of analyses to periodically use deep analysis
+  private patternCounter: number = 0;
+  private lessonExtractor: LessonExtractor;
 
   constructor(opts: {
     memory: Memory;
@@ -41,11 +43,12 @@ export class TellerAgent {
       this.provider = new AnthropicProvider(apiKey, process.env.ANTHROPIC_MODEL);
     }
     this.memory = opts.memory;
-    this.intervalMs = opts.intervalMs || 2 * 60 * 1000; // 2 minutes
-    this.lastAnalysisTime = 0; // Capture all events on first run
+    this.intervalMs = opts.intervalMs || 2 * 60 * 1000;
+    this.lastAnalysisTime = 0;
     this.analysisDepth = opts.analysisDepth || "standard";
     this.onObservation = opts.onObservation;
     this.onError = opts.onError || (() => {});
+    this.lessonExtractor = new LessonExtractor(this.provider);
   }
 
   start(): void {
@@ -81,11 +84,13 @@ export class TellerAgent {
 
       const pastObservations = this.memory.getPastObservations(10);
       const sessionObservations = this.memory.getSessionObservations();
+      const globalLessons = this.memory.getLessons(5);
 
       const prompt = this.buildPrompt(
         recentEvents,
         pastObservations,
         sessionObservations,
+        globalLessons,
       );
       
       // Dynamically determine analysis depth
@@ -111,9 +116,15 @@ export class TellerAgent {
         const observation: TellerObservation = {
           text,
           timestamp: Date.now(),
-          depth: currentDepth, // Store the depth used
+          depth: currentDepth,
         };
         this.memory.addObservation(text);
+        
+        // Fire-and-forget: extract global lessons from this observation
+        this.lessonExtractor.extractAndStore(text, this.memory).catch(() => {
+          // Non-critical: lesson extraction failure should not affect observation flow
+        });
+        
         this.onObservation(observation);
       }
     } catch (err) {
@@ -125,6 +136,7 @@ export class TellerAgent {
     events: StoredEvent[],
     pastObservations: StoredObservation[],
     sessionObservations: StoredObservation[],
+    globalLessons: StoredLesson[] = [],
   ): string {
     const parts: string[] = [];
 
@@ -168,6 +180,16 @@ export class TellerAgent {
       for (const o of pastObservations.slice(0, 5)) {
         const date = new Date(o.timestamp).toLocaleDateString();
         parts.push(`- [${date}] ${o.observation}`);
+      }
+    }
+
+    // Global lessons - read-only behavioral intelligence from all workspaces
+    if (globalLessons.length > 0) {
+      parts.push("\n## Lessons learned (global)\n");
+      parts.push("These patterns were observed across your coding work:\n");
+      for (const lesson of globalLessons) {
+        const confidenceLabel = lesson.confidence > 0.8 ? "high" : lesson.confidence > 0.5 ? "medium" : "low";
+        parts.push(`- [${lesson.category}] ${lesson.content} (${confidenceLabel} confidence)`);
       }
     }
 

@@ -54,7 +54,7 @@ function App({ eventEmitter }: AppProps) {
   }, []);
 
   // Height calculations for deterministic layout
-  const HEADER_HEIGHT = 1;  // banner (single line)
+  const HEADER_HEIGHT = 2;  // banner (2 lines: name + events/status)
   const DIVIDER_HEIGHT = 1; // blank line
   const EVENTS_HEIGHT = 6;  // events section - compact single-line format
   const FOOTER_HEIGHT = 1;   // quit instruction
@@ -139,21 +139,14 @@ function App({ eventEmitter }: AppProps) {
 
   return (
     <Box flexDirection="column" height={dimensions.rows} backgroundColor="black">
-      {/* SECTION: BANNER - Single line: Name • Events • Status */}
-      <Box flexDirection="row" paddingX={1}>
+      {/* SECTION: BANNER - Line 1: Name, Line 2: Events • Status */}
+      <Box flexDirection="column" paddingX={1}>
         <Text bold color="cyan">
           TELLER
         </Text>
-        <Text dimColor color="cyan"> • </Text>
         <Text dimColor color="cyan">
-          [{eventCount} events]
+          •[{eventCount} events] • {status}
         </Text>
-        <Text dimColor color="cyan"> • </Text>
-        <Box flexGrow={1}>
-          <Text dimColor color="cyan" wrap="truncate">
-            {status}
-          </Text>
-        </Box>
       </Box>
 
       {/* Fat divider line between banner and events */}
