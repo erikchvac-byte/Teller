@@ -3,7 +3,7 @@ import { render, Box, Text } from "ink";
 import type { TellerObservation } from "../agent/teller.js";
 import type { TerminalEvent } from "../capture/terminal-hook.js";
 import type { OpencodeEvent } from "../capture/opencode-watcher.js";
-import { ColoredText } from "../utils/colorize.js";
+import { ColoredText, ObservationText } from "../utils/colorize.js";
 import type { ColorMode } from "../utils/colorize.js";
 import { DyslexiaText } from "./dyslexia-text.js";
 
@@ -214,7 +214,7 @@ function App({ eventEmitter }: AppProps) {
                     </Text>
                   )}
                 </Box>
-                <ColoredText text={o.text} mode="semantic" />
+                <ObservationText text={o.text} mode="semantic" />
               </Box>
           ))
         )}

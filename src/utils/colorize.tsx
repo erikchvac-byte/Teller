@@ -373,3 +373,118 @@ export function ColoredText({ text, mode = "keywords" }: ColoredTextProps): Reac
     </Text>
   );
 }
+
+interface ObservationSection {
+  type: "main" | "confidence" | "evidence" | "risk" | "next";
+  text: string;
+}
+
+const SECTION_COLORS: Record<string, ColorKey> = {
+  confidence: "yellow",
+  evidence: "cyan",
+  risk: "red",
+  next: "green",
+};
+
+/**
+ * Parse observation text into sections with type and content
+ */
+function parseObservationSections(text: string): ObservationSection[] {
+  const sections: ObservationSection[] = [];
+  
+  // Split by | separator first to get major sections
+  const parts = text.split('|').map(p => p.trim());
+  
+  for (const part of parts) {
+    // Check for section type
+    const lowerPart = part.toLowerCase();
+    
+    if (lowerPart.startsWith('confidence:')) {
+      sections.push({
+        type: 'confidence',
+        text: part.substring('confidence:'.length).trim()
+      });
+    } else if (lowerPart.startsWith('evidence:')) {
+      sections.push({
+        type: 'evidence',
+        text: part.substring('evidence:'.length).trim()
+      });
+    } else if (lowerPart.startsWith('risk:')) {
+      sections.push({
+        type: 'risk',
+        text: part.substring('risk:'.length).trim()
+      });
+    } else if (lowerPart.startsWith('next:')) {
+      sections.push({
+        type: 'next',
+        text: part.substring('next:'.length).trim()
+      });
+    } else {
+      // Main content (no section prefix)
+      sections.push({
+        type: 'main',
+        text: part
+      });
+    }
+  }
+  
+  return sections;
+}
+
+interface ObservationTextProps {
+  text: string;
+  mode?: ColorMode;
+}
+
+/**
+ * React component that renders observation text with colored section prefixes
+ */
+export function ObservationText({ text, mode = "semantic" }: ObservationTextProps): React.ReactElement {
+  const sections = parseObservationSections(text);
+  
+  return (
+    <Text>
+      {sections.map((section, index) => {
+        const isMain = section.type === 'main';
+        const sectionId = `${section.type}-${section.text.slice(0, 20)}`;
+        
+        if (isMain) {
+          // Main text without prefix, just colored by mode
+          const segments = parseColoredText(section.text, mode);
+          return (
+            <React.Fragment key={`main-${sectionId}`}>
+              {segments.map((segment, segIndex) => {
+                const key = `${sectionId}-seg-${segIndex}-${segment.color ?? 'nc'}`;
+                if (segment.color) {
+                  return (
+                    <Text key={key} color={COLORS[segment.color]} bold={segment.bold}>
+                      {segment.text}
+                    </Text>
+                  );
+                }
+                return segment.text;
+              })}
+              {'\n'}
+            </React.Fragment>
+          );
+        } else {
+          // Section with colored prefix
+          const color = SECTION_COLORS[section.type];
+          const prefixLabel = section.type.toUpperCase();
+          return (
+            <React.Fragment key={`${sectionId}`}>
+              <Text color={COLORS[color]} bold>
+                [{prefixLabel}]
+              </Text>
+              {' '}
+              <Text>
+                {section.text}
+              </Text>
+              {'\n'}
+            </React.Fragment>
+          );
+        }
+      })}
+    </Text>
+  );
+}
