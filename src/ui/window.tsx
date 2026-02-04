@@ -244,6 +244,9 @@ function App({ eventEmitter }: AppProps) {
         <Text bold color="cyan">
           {"       |_| |___|___|___|___|_|_\\ "}
         </Text>
+        <Text color="black">
+          {" "}
+        </Text>
       </Box>
 
       {/* Fat divider line between banner and events */}
