@@ -261,7 +261,7 @@ function App({ eventEmitter }: AppProps) {
          overflow="hidden"
        >
           <Text dimColor color="gray">
-            — events [{eventCount}] —
+            • Event {eventCount} •
           </Text>
          {events.length === 0 ? (
            <Text dimColor>Waiting for activity...</Text>
