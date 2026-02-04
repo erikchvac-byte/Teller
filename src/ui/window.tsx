@@ -131,6 +131,10 @@ function App({ eventEmitter }: AppProps) {
     return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  const generateDivider = (width: number) => {
+    return '═'.repeat(width);
+  };
+
   const OBSERVATIONS_VISIBLE_COUNT = 6;
 
   return (
@@ -152,9 +156,9 @@ function App({ eventEmitter }: AppProps) {
         </Box>
       </Box>
 
-      {/* Divider: Blank line for visual separation */}
-      <Box>
-        <Text> </Text>
+      {/* Fat divider line between banner and events */}
+      <Box paddingX={1}>
+        <Text dimColor color="gray">{generateDivider(dimensions.columns - 2)}</Text>
       </Box>
 
        {/* SECTION: EVENT FEED - Scrollable activity log */}
@@ -180,9 +184,9 @@ function App({ eventEmitter }: AppProps) {
          )}
        </Box>
 
-      {/* Divider: Blank line for visual separation */}
-      <Box>
-        <Text> </Text>
+      {/* Fat divider line between events and observations */}
+      <Box paddingX={1}>
+        <Text dimColor color="yellow">{generateDivider(dimensions.columns - 2)}</Text>
       </Box>
 
       {/* SECTION: OBSERVER - Expandable colored observations */}
@@ -220,9 +224,9 @@ function App({ eventEmitter }: AppProps) {
         </Box>
       </Box>
 
-      {/* Divider: Explicit blank line padding above footer */}
-      <Box>
-        <Text> </Text>
+      {/* Fat divider line above footer */}
+      <Box paddingX={1}>
+        <Text dimColor color="gray">{generateDivider(dimensions.columns - 2)}</Text>
       </Box>
 
       {/* SECTION: FOOTER - Fixed quit instruction */}
