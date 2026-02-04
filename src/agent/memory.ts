@@ -43,6 +43,8 @@ export class Memory {
   private db: Database.Database;
   private sessionId: string;
   private workspaceId: string;
+  private insertCount = 0;
+  private readonly CHECKPOINT_INTERVAL = 50; // Checkpoint every 50 inserts
 
   constructor(sessionId?: string, workspaceId?: string) {
     this.sessionId = sessionId || new Date().toISOString().replace(/[:.]/g, "-");
@@ -213,7 +215,7 @@ export class Memory {
       event.content,
       event.timestamp,
     );
-    this.db.pragma("wal_checkpoint(PASSIVE)");
+    this.maybeCheckpoint();
   }
 
   addObservation(observation: string): void {
@@ -292,7 +294,15 @@ export class Memory {
       now,
       now,
     );
-    this.db.pragma("wal_checkpoint(PASSIVE)");
+    this.maybeCheckpoint();
+  }
+
+  /** Conditionally checkpoint WAL to reduce performance overhead */
+  private maybeCheckpoint(): void {
+    this.insertCount++;
+    if (this.insertCount % this.CHECKPOINT_INTERVAL === 0) {
+      this.db.pragma("wal_checkpoint(PASSIVE)");
+    }
   }
 
   getSessionId(): string {
@@ -304,6 +314,8 @@ export class Memory {
   }
 
   close(): void {
+    // Final checkpoint before closing
+    this.db.pragma("wal_checkpoint(PASSIVE)");
     this.db.close();
   }
 }

@@ -87,15 +87,32 @@ function simpleHash(str: string): string {
   return hash.toString(16);
 }
 
+// Validate git ref to prevent command injection
+function isValidGitRef(ref: string): boolean {
+  return /^[a-f0-9]{7,40}$/i.test(ref);
+}
+
 // Capture git diff showing actual code changes
+let isCapturing = false; // Mutex to prevent race condition
+
 function captureGitDiff() {
+  // Prevent concurrent execution (race condition fix)
+  if (isCapturing) return;
+  isCapturing = true;
+  
   try {
     const currentHead = getGitHead();
     
+    // Update lastGitHead immediately to prevent race condition
+    const previousHead = lastGitHead;
+    if (currentHead) {
+      lastGitHead = currentHead;
+    }
+    
     // Check for new commits by comparing HEAD
-    if (currentHead && currentHead !== lastGitHead && lastGitHead !== "") {
+    if (currentHead && currentHead !== previousHead && previousHead !== "" && isValidGitRef(previousHead)) {
       // Get all commits since last check
-      const commits = execSync(`git log ${lastGitHead}..HEAD --oneline`, { 
+      const commits = execSync(`git log ${previousHead}..HEAD --oneline`, { 
         encoding: "utf8", 
         timeout: 5000,
         cwd: projectDir,
@@ -104,10 +121,10 @@ function captureGitDiff() {
       
       if (commits) {
         // Get diff for each new commit
-        const commitLines = commits.split('\n');
+        const commitLines = commits.split('\n').filter(Boolean);
         for (const commit of commitLines) {
           const commitHash = commit.split(' ')[0];
-          if (commitHash) {
+          if (commitHash && isValidGitRef(commitHash)) {
             const diffOutput = execSync(`git show ${commitHash}`, { 
               encoding: "utf8", 
               timeout: 10000,
@@ -134,11 +151,6 @@ function captureGitDiff() {
           }
         }
       }
-    }
-    
-    // Update lastGitHead after processing
-    if (currentHead) {
-      lastGitHead = currentHead;
     }
     
     // Also capture uncommitted changes (but deduplicate)
@@ -178,6 +190,8 @@ function captureGitDiff() {
     
   } catch (err) {
     // Git commands might fail silently - this is fine
+  } finally {
+    isCapturing = false;
   }
 }
 

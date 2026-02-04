@@ -54,7 +54,7 @@ function App({ eventEmitter }: AppProps) {
   }, []);
 
   // Height calculations for deterministic layout
-  const HEADER_HEIGHT = 2;  // banner (2 lines: name + events/status)
+  const HEADER_HEIGHT = 4;  // banner (4 lines: ASCII art)
   const DIVIDER_HEIGHT = 1; // blank line
   const EVENTS_HEIGHT = 6;  // events section - compact single-line format
   const FOOTER_HEIGHT = 1;   // quit instruction
@@ -90,8 +90,8 @@ function App({ eventEmitter }: AppProps) {
         }
       } else {
         const oc = e as OpencodeEvent;
-        // RULE: Naming convention - Human/Teller (no model/provider tags)
-        const role = oc.role === "user" ? "Human" : "Teller";
+        // RULE: Naming convention - H/T (no model/provider tags)
+        const role = oc.role === "user" ? "H" : "T";
         text = `(${role}) ${(oc.content || "").slice(0, 60)}`;
       }
       setEvents((prev) => {
@@ -128,7 +128,12 @@ function App({ eventEmitter }: AppProps) {
   }, [eventEmitter]);
 
   const time = (ts: number) => {
-    return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const date = new Date(ts);
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    const ampm = hours >= 12 ? 'pm' : 'am';
+    const hours12 = hours % 12 || 12;
+    return `${hours12}:${minutes.toString().padStart(2, '0')}${ampm}`;
   };
 
   const generateDivider = (width: number) => {
@@ -139,13 +144,19 @@ function App({ eventEmitter }: AppProps) {
 
   return (
     <Box flexDirection="column" height={dimensions.rows} backgroundColor="black">
-      {/* SECTION: BANNER - Line 1: Name, Line 2: Events • Status */}
-      <Box flexDirection="column" paddingX={1}>
+      {/* SECTION: BANNER - ASCII Art */}
+      <Box paddingX={0} flexDirection="column">
         <Text bold color="cyan">
-          TELLER
+          {"      _____ ___ _   _   ___ ___ "}
         </Text>
-        <Text dimColor color="cyan">
-          •[{eventCount} events] • {status}
+        <Text bold color="cyan">
+          {"     |_   _| __| | | | | __| _ \\"}
+        </Text>
+        <Text bold color="cyan">
+          {"       | | | _|| |_| |_| _|| v /"}
+        </Text>
+        <Text bold color="cyan">
+          {"       |_| |___|___|___|___|_|_\\ "}
         </Text>
       </Box>
 
@@ -163,9 +174,9 @@ function App({ eventEmitter }: AppProps) {
          paddingX={1}
          overflow="hidden"
        >
-         <Text dimColor color="gray">
-           — events —
-         </Text>
+          <Text dimColor color="gray">
+            — events [{eventCount}] —
+          </Text>
          {events.length === 0 ? (
            <Text dimColor>Waiting for activity...</Text>
          ) : (
@@ -191,15 +202,19 @@ function App({ eventEmitter }: AppProps) {
         overflow="hidden"
         backgroundColor="black"
       >
-        <Text bold underline color="yellow">
-          Observations
-        </Text>
+        <Box justifyContent="center">
+          <Text bold underline color="yellow">
+            Observations
+          </Text>
+        </Box>
         {observations.length === 0 ? (
-          <Text dimColor>Teller is watching... first analysis in ~15s</Text>
+          <Box justifyContent="center">
+            <Text dimColor>Waiting for observations...</Text>
+          </Box>
         ) : (
           observations.slice(-OBSERVATIONS_VISIBLE_COUNT).map((o) => (
               <Box key={o.id} flexDirection="column" marginBottom={1}>
-                <Box>
+                <Box justifyContent="center">
                   <Text dimColor>{time(o.timestamp)}</Text>
                   {o.type === "observation" && (o as any).depth && (
                     <Text color={(o as any).depth === "deep" ? "green" : (o as any).depth === "quick" ? "gray" : "white"} dimColor>
@@ -207,7 +222,9 @@ function App({ eventEmitter }: AppProps) {
                     </Text>
                   )}
                 </Box>
-                <ObservationText text={o.text} mode="semantic" />
+                <Box justifyContent="center">
+                  <ObservationText text={o.text} mode="semantic" />
+                </Box>
               </Box>
           ))
         )}

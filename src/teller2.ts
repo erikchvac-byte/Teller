@@ -33,10 +33,14 @@ export function createTeller2(bus: EventEmitter, existingMemory?: Memory): {
   const skillLoader = new SkillLoader();
   
   // List available skills
-  skillLoader.listAvailableSkills().then(skills => {
-    console.log(`[Teller2] Found ${skills.length} skills:`, 
-      skills.map(s => s.name).join(", "));
-  });
+  skillLoader.listAvailableSkills()
+    .then(skills => {
+      console.log(`[Teller2] Found ${skills.length} skills:`, 
+        skills.map(s => s.name).join(", "));
+    })
+    .catch(err => {
+      console.warn("[Teller2] Failed to list skills:", err);
+    });
   
   // Async loader function for skills
   const loadSkill = async (name: string) => {

@@ -40,7 +40,7 @@ export class AnthropicProvider implements AIProvider {
       messages: [{ role: "user", content: prompt }],
     });
 
-    if (response.content[0].type === "text") {
+    if (response.content && response.content.length > 0 && response.content[0].type === "text") {
       return response.content[0].text.trim();
     }
     return "";

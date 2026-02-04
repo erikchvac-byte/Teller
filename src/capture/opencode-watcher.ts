@@ -34,6 +34,7 @@ export class OpencodeWatcher extends EventEmitter {
   private partWatcher: ReturnType<typeof watch> | null = null;
   private seenMessages = new Set<string>();
   private seenParts = new Set<string>();
+  private readonly MAX_SEEN_SIZE = 5000; // Limit to prevent memory leak
 
   // Buffer: messageId -> metadata (from message files)
   private messageBuffer = new Map<
@@ -205,10 +206,27 @@ export class OpencodeWatcher extends EventEmitter {
     });
   }
 
+  /** Prevent memory leak by evicting old entries when sets grow too large */
+  private cleanupSeenSets(): void {
+    if (this.seenMessages.size > this.MAX_SEEN_SIZE) {
+      const entries = Array.from(this.seenMessages);
+      this.seenMessages = new Set(entries.slice(-Math.floor(this.MAX_SEEN_SIZE / 2)));
+    }
+    if (this.seenParts.size > this.MAX_SEEN_SIZE) {
+      const entries = Array.from(this.seenParts);
+      this.seenParts = new Set(entries.slice(-Math.floor(this.MAX_SEEN_SIZE / 2)));
+    }
+    if (this.messageBuffer.size > this.MAX_SEEN_SIZE) {
+      const entries = Array.from(this.messageBuffer.entries());
+      this.messageBuffer = new Map(entries.slice(-Math.floor(this.MAX_SEEN_SIZE / 2)));
+    }
+  }
+
   /** Parse a message metadata file and buffer it */
   private handleMessage(filePath: string): void {
     if (this.seenMessages.has(filePath)) return;
     this.seenMessages.add(filePath);
+    this.cleanupSeenSets();
 
     try {
       const raw = fs.readFileSync(filePath, "utf-8");
@@ -251,6 +269,7 @@ export class OpencodeWatcher extends EventEmitter {
   private handlePart(filePath: string): void {
     if (this.seenParts.has(filePath)) return;
     this.seenParts.add(filePath);
+    this.cleanupSeenSets();
 
     try {
       const raw = fs.readFileSync(filePath, "utf-8");
