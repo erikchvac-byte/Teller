@@ -392,52 +392,86 @@ const SECTION_COLORS: Record<string, ColorKey> = {
 function parseObservationSections(text: string): ObservationSection[] {
   const sections: ObservationSection[] = [];
   
-  // Split by | separator first to get major sections
-  const parts = text.split('|').map(p => p.trim());
+  // First try | separator format
+  const pipeParts = text.split('|').map(p => p.trim());
+  let usedPipeFormat = false;
   
-  // Debug: log the parts
-  console.error('[DEBUG] Parsing observation:', text);
-  console.error('[DEBUG] Split parts:', parts);
-  
-  for (const part of parts) {
-    // Check for section type
+  for (const part of pipeParts) {
     const lowerPart = part.toLowerCase();
     
-    if (lowerPart.startsWith('confidence:')) {
-      sections.push({
-        type: 'confidence',
-        text: part.substring('confidence:'.length).trim()
-      });
-      console.error('[DEBUG] Found confidence section');
-    } else if (lowerPart.startsWith('evidence:')) {
-      sections.push({
-        type: 'evidence',
-        text: part.substring('evidence:'.length).trim()
-      });
-      console.error('[DEBUG] Found evidence section');
-    } else if (lowerPart.startsWith('risk:')) {
-      sections.push({
-        type: 'risk',
-        text: part.substring('risk:'.length).trim()
-      });
-      console.error('[DEBUG] Found risk section');
-    } else if (lowerPart.startsWith('next:')) {
-      sections.push({
-        type: 'next',
-        text: part.substring('next:'.length).trim()
-      });
-      console.error('[DEBUG] Found next section');
-    } else if (part.length > 0) {
-      // Main content (no section prefix) - pattern summary comes first
-      sections.push({
-        type: 'main',
-        text: part
-      });
-      console.error('[DEBUG] Found main section:', part);
+    if (lowerPart.startsWith('confidence:') || lowerPart.startsWith('confidence:')) {
+      usedPipeFormat = true;
+      break;
     }
   }
   
-  console.error('[DEBUG] Final sections:', sections.map(s => ({ type: s.type, text: s.text.slice(0, 50) })));
+  if (usedPipeFormat) {
+    // Parse | separated format
+    for (const part of pipeParts) {
+      const lowerPart = part.toLowerCase();
+      
+      if (lowerPart.startsWith('confidence:')) {
+        sections.push({
+          type: 'confidence',
+          text: part.substring('confidence:'.length).trim()
+        });
+      } else if (lowerPart.startsWith('evidence:')) {
+        sections.push({
+          type: 'evidence',
+          text: part.substring('evidence:'.length).trim()
+        });
+      } else if (lowerPart.startsWith('risk:')) {
+        sections.push({
+          type: 'risk',
+          text: part.substring('risk:'.length).trim()
+        });
+      } else if (lowerPart.startsWith('next:')) {
+        sections.push({
+          type: 'next',
+          text: part.substring('next:'.length).trim()
+        });
+      } else if (part.length > 0) {
+        sections.push({
+          type: 'main',
+          text: part
+        });
+      }
+    }
+  } else {
+    // Parse bracket format: [CONFIDENCE] MEDIUM, [EVIDENCE] ..., etc.
+    const lines = text.split('\n');
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      
+      if (/^\[CONFIDENCE\]/i.test(trimmedLine)) {
+        sections.push({
+          type: 'confidence',
+          text: trimmedLine.replace(/^\[CONFIDENCE\]\s*/i, '').trim()
+        });
+      } else if (/^\[EVIDENCE\]/i.test(trimmedLine)) {
+        sections.push({
+          type: 'evidence',
+          text: trimmedLine.replace(/^\[EVIDENCE\]\s*/i, '').trim()
+        });
+      } else if (/^\[RISK\]/i.test(trimmedLine)) {
+        sections.push({
+          type: 'risk',
+          text: trimmedLine.replace(/^\[RISK\]\s*/i, '').trim()
+        });
+      } else if (/^\[NEXT\]/i.test(trimmedLine)) {
+        sections.push({
+          type: 'next',
+          text: trimmedLine.replace(/^\[NEXT\]\s*/i, '').trim()
+        });
+      } else if (trimmedLine.length > 0) {
+        sections.push({
+          type: 'main',
+          text: trimmedLine
+        });
+      }
+    }
+  }
+  
   return sections;
 }
 
@@ -454,7 +488,7 @@ export function ObservationText({ text, mode = "semantic" }: ObservationTextProp
   
   return (
     <Text>
-      {sections.map((section, index) => {
+      {sections.map((section) => {
         const isMain = section.type === 'main';
         const sectionId = `${section.type}-${section.text.slice(0, 20)}`;
         
