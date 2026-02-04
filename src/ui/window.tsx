@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { render, Box, Text } from "ink";
+import { render, Box, Text, useInput } from "ink";
 import type { TellerObservation } from "../agent/teller.js";
 import type { TerminalEvent } from "../capture/terminal-hook.js";
 import type { OpencodeEvent } from "../capture/opencode-watcher.js";
@@ -19,13 +19,15 @@ interface AppProps {
 }
 
 interface LogEntry {
-  id: number;
+  id: string;
   text: string;
   type: "event" | "observation" | "status" | "error";
   timestamp: number;
 }
 
-let nextId = 0;
+// Generate unique IDs that persist across hot reloads
+let nextId = Date.now();
+const getNextId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
 function App({ eventEmitter }: AppProps) {
   const [dimensions, setDimensions] = useState({
@@ -36,6 +38,7 @@ function App({ eventEmitter }: AppProps) {
   const [observations, setObservations] = useState<LogEntry[]>([]);
   const [status, setStatus] = useState("Starting Teller...");
   const [eventCount, setEventCount] = useState(0);
+  const [scrollOffset, setScrollOffset] = useState(0); // 0 = latest, positive = scrolled back
 
   // Track terminal dimensions for responsive layout
   useEffect(() => {
@@ -96,7 +99,7 @@ function App({ eventEmitter }: AppProps) {
       }
       setEvents((prev) => {
         const entry: LogEntry = {
-          id: nextId++,
+          id: getNextId(),
           text,
           type: "event",
           timestamp: Date.now(),
@@ -108,13 +111,20 @@ function App({ eventEmitter }: AppProps) {
     eventEmitter.on("observation", (o: TellerObservation) => {
       setObservations((prev) => {
         const entry: LogEntry & { depth?: string } = {
-          id: nextId++,
+          id: getNextId(),
           text: o.text,
           type: "observation",
           timestamp: o.timestamp,
           depth: o.depth
         };
         return [...prev.slice(-49), entry]; // keep last 50
+      });
+      // Track new observations when scrolled up
+      setScrollOffset((currentOffset) => {
+        if (currentOffset > 0) {
+          setNewObservationsPending((n) => n + 1);
+        }
+        return currentOffset;
       });
     });
 
@@ -126,6 +136,84 @@ function App({ eventEmitter }: AppProps) {
       setStatus(`Error: ${err.message}`);
     });
   }, [eventEmitter]);
+
+  const MAX_OBSERVATIONS = 50;
+  
+  // Calculate approximate lines per observation based on content length
+  const estimateLinesForObservation = (text: string): number => {
+    // Rough estimate: timestamp (1 line) + wrapped text + margin
+    const contentWidth = dimensions.columns - 4; // account for padding
+    const estimatedTextLines = Math.max(1, Math.ceil(text.length / contentWidth));
+    return estimatedTextLines + 2; // +1 for timestamp, +1 for margin
+  };
+  
+  // Calculate visible count dynamically based on recent observations
+  const getVisibleCount = (): number => {
+    if (observations.length === 0) return 1;
+    
+    let totalLines = 1; // header line
+    let count = 0;
+    
+    // Start from newest observations and count until we exceed height
+    for (let i = observations.length - 1; i >= 0 && totalLines < safeObservationsHeight; i--) {
+      const obs = observations[i];
+      const linesNeeded = estimateLinesForObservation(obs.text);
+      
+      if (totalLines + linesNeeded <= safeObservationsHeight) {
+        totalLines += linesNeeded;
+        count++;
+      } else {
+        break;
+      }
+    }
+    
+    return Math.max(1, count);
+  };
+  
+  const visibleCount = getVisibleCount();
+
+  const [newObservationsPending, setNewObservationsPending] = useState(0);
+
+  // Keyboard handler for scrolling observations
+  useInput((input, key) => {
+    setScrollOffset(prev => {
+      const maxScroll = Math.max(0, observations.length - visibleCount);
+      
+      if (key.upArrow) {
+        // Scroll back (older)
+        return Math.min(prev + 1, maxScroll);
+      } else if (key.downArrow) {
+        // Scroll forward (newer)
+        const newOffset = Math.max(prev - 1, 0);
+        if (newOffset === 0) setNewObservationsPending(0);
+        return newOffset;
+      } else if (key.pageUp) {
+        // Page up - scroll back by visible count
+        return Math.min(prev + visibleCount, maxScroll);
+      } else if (key.pageDown) {
+        // Page down - scroll forward by visible count
+        const newOffset = Math.max(prev - visibleCount, 0);
+        if (newOffset === 0) setNewObservationsPending(0);
+        return newOffset;
+      } else if (input === 'k') {
+        // Scroll back (older) - vim style
+        return Math.min(prev + 1, maxScroll);
+      } else if (input === 'j') {
+        // Scroll forward (newer) - vim style
+        const newOffset = Math.max(prev - 1, 0);
+        if (newOffset === 0) setNewObservationsPending(0);
+        return newOffset;
+      } else if (input === 'g') {
+        // Go to oldest
+        return maxScroll;
+      } else if (input === 'G') {
+        // Go to newest
+        setNewObservationsPending(0);
+        return 0;
+      }
+      return prev;
+    });
+  });
 
   const time = (ts: number) => {
     const date = new Date(ts);
@@ -139,8 +227,6 @@ function App({ eventEmitter }: AppProps) {
   const generateDivider = (width: number) => {
     return '═'.repeat(width);
   };
-
-  const OBSERVATIONS_VISIBLE_COUNT = 6;
 
   return (
     <Box flexDirection="column" height={dimensions.rows} backgroundColor="black">
@@ -206,28 +292,45 @@ function App({ eventEmitter }: AppProps) {
           <Text bold underline color="yellow">
             Observations
           </Text>
+          {scrollOffset > 0 && (
+            <Text dimColor color="cyan"> [{scrollOffset} back]</Text>
+          )}
+          {newObservationsPending > 0 && (
+            <Text bold color="green"> [{newObservationsPending} new ↓]</Text>
+          )}
         </Box>
         {observations.length === 0 ? (
           <Box justifyContent="center">
             <Text dimColor>Waiting for observations...</Text>
           </Box>
-        ) : (
-          observations.slice(-OBSERVATIONS_VISIBLE_COUNT).map((o) => (
-              <Box key={o.id} flexDirection="column" marginBottom={1}>
-                <Box justifyContent="center">
-                  <Text dimColor>{time(o.timestamp)}</Text>
-                  {o.type === "observation" && (o as any).depth && (
-                    <Text color={(o as any).depth === "deep" ? "green" : (o as any).depth === "quick" ? "gray" : "white"} dimColor>
-                      {" "}[{(o as any).depth}]
-                    </Text>
-                  )}
-                </Box>
-                <Box justifyContent="center">
-                  <ObservationText text={o.text} mode="semantic" />
-                </Box>
-              </Box>
-          ))
-        )}
+         ) : (
+           // Calculate visible window with scroll offset using dynamic sizing
+           (() => {
+             const endIdx = observations.length - scrollOffset;
+             let startIdx = Math.max(0, endIdx - visibleCount);
+             
+             // Ensure we don't go beyond array bounds
+             startIdx = Math.max(0, Math.min(startIdx, observations.length - 1));
+             
+             const visibleObservations = observations.slice(startIdx, endIdx);
+             
+             return visibleObservations.map((o) => (
+               <Box key={o.id} flexDirection="column" marginBottom={1}>
+                 <Box justifyContent="center">
+                   <Text dimColor>{time(o.timestamp)}</Text>
+                   {o.type === "observation" && (o as any).depth && (
+                     <Text color={(o as any).depth === "deep" ? "green" : (o as any).depth === "quick" ? "gray" : "white"} dimColor>
+                       {" "}[{(o as any).depth}]
+                     </Text>
+                   )}
+                 </Box>
+                 <Box justifyContent="center">
+                   <ObservationText text={o.text} mode="semantic" />
+                 </Box>
+               </Box>
+             ));
+           })()
+         )}
         {/* This empty box always ensures that black space fills to the bottom */}
         <Box flexGrow={1} backgroundColor="black">
           <Text color="black"> </Text>
@@ -241,7 +344,7 @@ function App({ eventEmitter }: AppProps) {
 
       {/* SECTION: FOOTER - Fixed quit instruction */}
       {/* RULE: Pinned bottom, separated from content by blank line */}
-      <Box paddingX={1}>
+      <Box paddingX={1} justifyContent="flex-start">
         <Text dimColor>Ctrl+C to quit</Text>
       </Box>
     </Box>
