@@ -395,6 +395,10 @@ function parseObservationSections(text: string): ObservationSection[] {
   // Split by | separator first to get major sections
   const parts = text.split('|').map(p => p.trim());
   
+  // Debug: log the parts
+  console.error('[DEBUG] Parsing observation:', text);
+  console.error('[DEBUG] Split parts:', parts);
+  
   for (const part of parts) {
     // Check for section type
     const lowerPart = part.toLowerCase();
@@ -404,30 +408,36 @@ function parseObservationSections(text: string): ObservationSection[] {
         type: 'confidence',
         text: part.substring('confidence:'.length).trim()
       });
+      console.error('[DEBUG] Found confidence section');
     } else if (lowerPart.startsWith('evidence:')) {
       sections.push({
         type: 'evidence',
         text: part.substring('evidence:'.length).trim()
       });
+      console.error('[DEBUG] Found evidence section');
     } else if (lowerPart.startsWith('risk:')) {
       sections.push({
         type: 'risk',
         text: part.substring('risk:'.length).trim()
       });
+      console.error('[DEBUG] Found risk section');
     } else if (lowerPart.startsWith('next:')) {
       sections.push({
         type: 'next',
         text: part.substring('next:'.length).trim()
       });
-    } else {
-      // Main content (no section prefix)
+      console.error('[DEBUG] Found next section');
+    } else if (part.length > 0) {
+      // Main content (no section prefix) - pattern summary comes first
       sections.push({
         type: 'main',
         text: part
       });
+      console.error('[DEBUG] Found main section:', part);
     }
   }
   
+  console.error('[DEBUG] Final sections:', sections.map(s => ({ type: s.type, text: s.text.slice(0, 50) })));
   return sections;
 }
 
