@@ -1,6 +1,6 @@
-# Teller — Observational Coding Companion
+# Teller — Pattern-Aware Observational Coding Companion
 
-Teller watches your terminal and opencode conversations, providing behavioral insights about your coding patterns.
+Teller watches your terminal and opencode conversations, providing personalized behavioral insights about your coding patterns with progressive escalation awareness.
 
 ## Setup
 
@@ -29,15 +29,19 @@ Teller watches your terminal and opencode conversations, providing behavioral in
 
 - **Terminal Capture**: Polls your terminal every 3 seconds for commands and outputs
 - **Opencode Capture**: Watches opencode's conversation storage for AI interactions
-- **Analysis**: Every 2 minutes, the Teller agent analyzes recent activity and generates observations
-- **Observations**: Insights about your coding patterns, frustration loops, and productive exploration
+- **Pattern Detection**: AI-powered recognition of 12 personalized behavioral patterns
+- **Progressive Escalation**: Silent awareness → Frequency display → Definition → Active suggestions
+- **Analysis**: Every 2 minutes, analyzes activity with pattern-aware insights
+- **Session Tracking**: Pattern counters reset daily for fresh perspective
 
 ## Features
 
 ✅ **Real-time event capture** - Terminal commands and opencode conversations
 ✅ **Startup snapshot** - Processes recent activity from last 5 minutes
-✅ **Behavioral analysis** - AI-powered pattern recognition via Claude
-✅ **Observational insights** - Third-person perspective on development workflow
+✅ **Pattern detection** - 12 personalized behavioral patterns via Claude
+✅ **Progressive escalation** - 4-level awareness system with visual indicators
+✅ **Session-scoped tracking** - Daily reset pattern counters
+✅ **Pattern analytics** - 5-day retention with 10-day analytics storage
 ✅ **Cross-session memory** - Persistent database for pattern tracking
 ✅ **Live monitoring** - Continuous background operation
 ✅ **Clean UI layout** - Vertical stacking with fixed event feed (4 events) and observation feed (10 items)
@@ -45,14 +49,51 @@ Teller watches your terminal and opencode conversations, providing behavioral in
 ✅ **TELLER_CLCC branding** - Updated header with observational coding companion name
 ✅ **Black background UI** - Floor-to-ceiling black background for clean visual aesthetic
 
+## Pattern Detection
+
+### Behavioral Patterns
+- **UI-TRIAL**: Adjusting visual elements through trial-and-error instead of calculating requirements
+- **REPEAT-FAILURE**: Repeating failed actions without investigating underlying causes
+- **TECH-DEBT-RISK**: Choosing manual workarounds over fixing automation issues
+- **SOURCE-SKIP**: Avoiding primary documentation and relying on multiple AI consultations
+- **UNVERIFIED-COMPLETE**: Marking work complete without proper deployment verification
+- **REGRESSION**: Changes that break unrelated functionality
+
+### Tactical Patterns
+- **EXIT-CODE-IGNORED**: Proceeding without verifying command success
+- **BLIND-RETRY**: Retrying commands without investigating root causes
+- **AUTOMATION-BYPASS**: Using manual testing when automation exists
+- **CACHE-RISK**: Deploying without properly invalidating caches
+- **PORT-CONFLICT-RISK**: Restarting services without confirming process termination
+- **CWD-MISMATCH**: Executing file operations in wrong working directories
+
+## Progressive Escalation System
+
+1. **📊 1st Occurrence**: Silent pattern label (non-intrusive observation)
+2. **📊 2nd Occurrence**: Frequency display ("Appears 2 times in session")
+3. **⚠️ 3rd Occurrence**: Label + pattern definition + evidence
+4. **🔴 4th+ Occurrence**: Active label + actionable suggestion
+
+*Outside Observer Philosophy: No blocking, no questions, behavior labeling only*
+
 ## Current Status
 
-Teller is now **fully functional** and captures real-time events from:
+Teller is now **pattern-aware** and provides personalized insights from:
 - Terminal commands (PowerShell/bash history polling every 3 seconds)
 - Opencode conversations (file watching with 5-minute startup snapshot)
-- Behavioral observations (AI analysis every 2 minutes via Anthropic Claude)
+- Pattern-aware observations (AI analysis with 12 personalized patterns)
+- Progressive escalation (4-level awareness system)
+- Session tracking (daily reset counters)
 
 ## Recent Updates
+
+### Pattern-Aware Intelligence (Latest)
+- **12 Personalized Patterns**: Identified from 5-day development behavior analysis
+- **Progressive Escalation**: 4-level awareness system with visual indicators
+- **Session Tracking**: Daily reset pattern counters for fresh perspective
+- **Pattern Analytics**: Database storage with 5-day retention and 10-day analytics
+- **Outside Observer Integration**: Non-intrusive behavior labeling maintained
+- **Lesson Integration**: Confidence boosting for confirmed patterns (3+ occurrences)
 
 ### UI/Layout Improvements
 - **Vertical layout**: Changed from side-by-side to stacked layout (events top, observations below)

@@ -176,3 +176,90 @@
 - /src/capture/terminal-hook.ts (WORKING)
 - /src/capture/opencode-watcher.ts (WORKING)
 - /src/agent/teller.ts (receives git events)
+### ADR-006: Pattern-Aware Teller with Progressive Escalation
+**Status**: Accepted
+**Date**: 2026-02-05
+**Context**: Teller was generating generic observations but lacked the ability to recognize user-specific behavioral patterns. After analyzing 5 days of development data, we identified 12 recurring patterns that needed detection and progressive awareness building without violating the Outside Observer philosophy.
+
+**Problems Identified**:
+1. Generic observations without personalized pattern recognition
+2. No escalation system for repetitive behavior awareness
+3. Missing session-scoped pattern tracking
+4. No integration between pattern detection and lesson learning system
+5. Need for non-intrusive behavior labeling (Outside Observer approach)
+
+**Decision**: Implemented comprehensive pattern-aware system with:
+
+1. **12 Personalized Patterns**:
+   - Behavioral: UI-TRIAL, REPEAT-FAILURE, TECH-DEBT-RISK, SOURCE-SKIP, UNVERIFIED-COMPLETE, REGRESSION
+   - Tactical: EXIT-CODE-IGNORED, BLIND-RETRY, AUTOMATION-BYPASS, CACHE-RISK, PORT-CONFLICT-RISK, CWD-MISMATCH
+
+2. **Progressive Escalation System**:
+   - 1st occurrence: 📊 Silent label
+   - 2nd occurrence: 📊 Frequency display
+   - 3rd occurrence: ⚠️ Label + definition
+   - 4th+ occurrence: 🔴 Active label + suggestion
+
+3. **Session-Scoped Tracking**:
+   - Counters reset on Teller start (fresh daily perspective)
+   - Prevents historical baggage accumulation
+   - Pattern occurrence storage for analytics (10-day retention)
+
+4. **Outside Observer Integration**:
+   - No blocking or questions to user
+   - Non-intrusive behavior labeling only
+   - Maintains observational philosophy
+
+5. **Enhanced Memory System**:
+   - Added pattern_occurrences table
+   - 5-day data retention with automatic cleanup
+   - Pattern analytics API for future insights
+
+**Rationale**: Pattern-aware Teller transforms from generic observer to personalized behavior analyst while maintaining non-intrusive approach. Progressive escalation prevents alert fatigue while building awareness of repetitive patterns.
+
+**Consequences**:
+- **Benefits**: Personalized insights, actionable pattern recognition, improved self-awareness
+- **Drawbacks**: Increased complexity, additional pattern detection costs
+- **Trade-offs**: More sophisticated analysis vs computational overhead
+
+**Testing**: Successfully compiled and tested with mock data. Pattern detection logic verified with all 12 patterns. Escalation system working correctly through 4 levels.
+
+**Technical Implementation**:
+- PatternDetector: Claude-based pattern identification
+- PatternTracker: Session frequency monitoring and escalation
+- ObservationFormatter: Progressive display with icons
+- PatternDefinitions: Evidence-based pattern descriptions
+
+**Integration Points**:
+- Enhanced TellerAgent analysis workflow
+- Memory class with pattern_occurrences table
+- Lesson confidence boosting for confirmed patterns (3+ occurrences)
+- 5-day retention with 10-day analytics storage
+
+**Known Issues**:
+- Pattern detection sensitivity may need tuning based on live usage
+- Claude "quick" analysis balances cost/speed but may miss subtle patterns
+- Pattern definitions based on 5-day analysis sample - may evolve
+
+**Open Questions**:
+- Should pattern definitions evolve based on new behavior patterns?
+- How to handle pattern frequency thresholds for different users?
+- Should we add pattern-based coaching suggestions?
+
+**Future Considerations**:
+- Pattern sensitivity tuning based on live usage data
+- Weekly pattern summary reports
+- Pattern frequency visualization dashboard
+- Integration with existing lessons system for personalized coaching
+- Expansion to more sophisticated patterns as data accumulates
+
+**References**:
+- /src/agent/pattern-types.ts (TypeScript definitions)
+- /src/agent/pattern-definitions.ts (12 personalized patterns)
+- /src/agent/pattern-detector.ts (Claude-based detection)
+- /src/agent/pattern-tracker.ts (Session tracking and escalation)
+- /src/agent/observation-formatter.ts (Progressive display formatting)
+- /src/agent/memory.ts (Enhanced with pattern_occurrences table)
+- /src/agent/teller.ts (Integrated pattern detection workflow)
+- /PATTERN_SYSTEM_SUMMARY.md (Complete implementation overview)
+
