@@ -2,6 +2,10 @@ import { Memory, type StoredEvent, type StoredObservation, type StoredLesson } f
 import type { AIProvider } from "./providers/index.js";
 import { AnthropicProvider } from "./providers/anthropic.js";
 import { LessonExtractor } from "./lesson-extractor.js";
+import { PatternDetector } from "./pattern-detector.js";
+import { PatternTracker } from "./pattern-tracker.js";
+import { ObservationFormatter } from "./observation-formatter.js";
+import type { PatternCode } from "./pattern-types.js";
 
 export interface TellerObservation {
   text: string;
@@ -24,6 +28,11 @@ export class TellerAgent {
   private analysisDepth: "quick" | "standard" | "deep";
   private patternCounter: number = 0;
   private lessonExtractor: LessonExtractor;
+  
+  // NEW: Pattern system components
+  private patternDetector: PatternDetector;
+  private patternTracker: PatternTracker;
+  private observationFormatter: ObservationFormatter;
 
   constructor(opts: {
     memory: Memory;
@@ -49,11 +58,18 @@ export class TellerAgent {
     this.onObservation = opts.onObservation;
     this.onError = opts.onError || (() => {});
     this.lessonExtractor = new LessonExtractor(this.provider);
+    
+    // NEW: Initialize pattern system
+    this.patternDetector = new PatternDetector(this.provider);
+    this.patternTracker = new PatternTracker();
+    this.observationFormatter = new ObservationFormatter();
   }
 
   start(): void {
+    // Reset pattern tracker for new session
+    this.patternTracker.reset();
+    
     // Run first analysis after a short delay to collect initial events
-
     setTimeout(() => this.analyze(), 15_000);
     this.analysisInterval = setInterval(() => this.analyze(), this.intervalMs);
   }
@@ -113,12 +129,41 @@ export class TellerAgent {
       const text = await this.provider.analyzeWithDepth(prompt, currentDepth);
 
       if (text && text.length > 0) {
+        // NEW: Detect patterns in the observation
+        const patternDetections = await this.patternDetector.detectPatterns(text, recentEvents);
+        
+        // NEW: Track pattern frequencies
+        const patternLabels = patternDetections.map(detection => {
+          const count = this.patternTracker.increment(detection.code);
+          
+          // Store pattern occurrence for analytics
+          this.memory.addPatternOccurrence(
+            detection.code,
+            detection.category,
+            detection.confidence,
+            detection.evidence,
+            Date.now()
+          );
+          
+          // NEW: Boost lesson confidence for confirmed patterns (3+ occurrences)
+          if (count >= 3) {
+            const category = this.categoryForPattern(detection.code);
+            const lessonText = this.lessonTextForPattern(detection.code);
+            this.memory.addLesson(category, lessonText, 0.1); // Boost confidence
+          }
+          
+          return this.patternTracker.createLabel(detection.code);
+        });
+        
+        // NEW: Format observation with pattern labels
+        const formatted = this.observationFormatter.format(text, patternLabels, Date.now());
+        
         const observation: TellerObservation = {
-          text,
-          timestamp: Date.now(),
+          text: formatted.displayText,
+          timestamp: formatted.timestamp,
           depth: currentDepth,
         };
-        this.memory.addObservation(text);
+        this.memory.addObservation(formatted.displayText);
         
         // Fire-and-forget: extract global lessons from this observation
         this.lessonExtractor.extractAndStore(text, this.memory).catch(() => {
@@ -213,5 +258,45 @@ export class TellerAgent {
       if (changes.length >= 3) break;
     }
     return changes.length > 0 ? changes.join(", ") : "(file details not available)";
+  }
+
+  /**
+   * Map pattern code to lesson category
+   */
+  private categoryForPattern(code: PatternCode): "mistake_pattern" | "habit" | "skill_gap" | "anti_pattern" | "workflow_inefficiency" {
+    const behavioralPatterns = ["UI-TRIAL", "REPEAT-FAILURE", "TECH-DEBT-RISK", "SOURCE-SKIP", "UNVERIFIED-COMPLETE", "REGRESSION"];
+    const tacticalPatterns = ["EXIT-CODE-IGNORED", "BLIND-RETRY", "AUTOMATION-BYPASS", "CACHE-RISK", "PORT-CONFLICT-RISK", "CWD-MISMATCH"];
+    
+    if (behavioralPatterns.includes(code)) {
+      return code === "REPEAT-FAILURE" || code === "TECH-DEBT-RISK" ? "anti_pattern" : "habit";
+    }
+    
+    if (tacticalPatterns.includes(code)) {
+      return "workflow_inefficiency";
+    }
+    
+    return "habit"; // fallback
+  }
+
+  /**
+   * Map pattern code to lesson text
+   */
+  private lessonTextForPattern(code: PatternCode): string {
+    const lessonTexts = {
+      "UI-TRIAL": "Developer tends to adjust visual elements through trial-and-error instead of calculating requirements upfront",
+      "REPEAT-FAILURE": "Developer repeats failed actions without investigating underlying causes",
+      "TECH-DEBT-RISK": "Developer chooses manual workarounds over fixing automation issues",
+      "SOURCE-SKIP": "Developer avoids consulting primary documentation and relies on multiple AI consultations",
+      "UNVERIFIED-COMPLETE": "Developer marks work complete without proper deployment verification",
+      "REGRESSION": "Developer's changes tend to break unrelated functionality",
+      "EXIT-CODE-IGNORED": "Developer proceeds without verifying command success",
+      "BLIND-RETRY": "Developer retries commands without investigating root causes",
+      "AUTOMATION-BYPASS": "Developer uses manual testing when automation exists",
+      "CACHE-RISK": "Developer deploys without properly invalidating caches",
+      "PORT-CONFLICT-RISK": "Developer restarts services without confirming process termination",
+      "CWD-MISMATCH": "Developer executes file operations in wrong working directories"
+    };
+
+    return lessonTexts[code as keyof typeof lessonTexts] || `Repeated pattern detected: ${code}`;
   }
 }
